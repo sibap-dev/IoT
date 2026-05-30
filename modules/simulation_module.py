@@ -9,8 +9,19 @@ This module handles realistic sensor data simulation including:
 - Environmental sensor simulation
 """
 
-import numpy as np
-import pandas as pd
+# Try optional heavy scientific packages
+try:
+    import numpy as np
+    import pandas as pd
+    SIM_PACKAGES_AVAILABLE = True
+except ImportError:
+    SIM_PACKAGES_AVAILABLE = False
+    # Define dummy mock modules to prevent NameError on class initialization
+    class MockPandas:
+        DataFrame = None
+    pd = MockPandas()
+    np = None
+
 from typing import Optional, List, Dict, Tuple
 from datetime import datetime, timedelta
 import logging

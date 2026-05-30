@@ -1,13 +1,20 @@
 import os
-import joblib
-import numpy as np
-import pandas as pd
 import logging
 from ml.explainability import ExplainabilityEngine
 from ml.recommendation_engine import RecommendationEngine
 from ml.anomaly_detector import AnomalyDetector
 
 logger = logging.getLogger(__name__)
+
+# Try optional heavy scientific packages
+try:
+    import joblib
+    import numpy as np
+    import pandas as pd
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+    logger.warning("Scientific packages (pandas/numpy/joblib) not found. Dynamic ML model predictions disabled.")
 
 class HealthPredictor:
     """
@@ -22,10 +29,13 @@ class HealthPredictor:
         self.model = None
         self.scaler = None
         self.anomaly_detector = AnomalyDetector()
-        self._load_model()
+        if ML_AVAILABLE:
+            self._load_model()
 
     def _load_model(self):
         """Attempts to load a trained Random Forest classifier from ml/models/."""
+        if not ML_AVAILABLE:
+            return
         if os.path.exists(self.model_path) and os.path.exists(self.scaler_path):
             try:
                 self.model = joblib.load(self.model_path)
@@ -38,7 +48,7 @@ class HealthPredictor:
         """
         Calculates health risk, anomaly indicators, explainability attribution, and recommendations.
         """
-        # 1. Run Anomaly Check (Isolation Forest)
+        # 1. Run Anomaly Check (Isolation Forest or Fallback)
         anomaly_res = self.anomaly_detector.predict(heart_rate, spo2, temperature)
 
         # 2. Run SHAP Attribution
@@ -48,16 +58,14 @@ class HealthPredictor:
         risk_score = 0.0
         confidence = 1.0
 
-        if self.model and self.scaler:
+        if ML_AVAILABLE and self.model and self.scaler:
             # ML Model Prediction path
             try:
                 features = pd.DataFrame([[heart_rate, spo2, temperature]], columns=["BPM", "SPO2", "Body_Temp"])
                 scaled = self.scaler.transform(features)
-                # Predict class probabilities (e.g. [Low, Medium, High, Critical])
                 probs = self.model.predict_proba(scaled)[0]
                 classes = self.model.classes_
 
-                # Custom risk score calculation based on probability distributions
                 class_weights = {"Low": 10.0, "Medium": 40.0, "High": 75.0, "Critical": 95.0}
                 for idx, cls_name in enumerate(classes):
                     weight = class_weights.get(cls_name, 10.0)
@@ -129,11 +137,13 @@ class HealthPredictor:
             scores.append(95.0)
 
         avg_score = sum(scores) / max(len(scores), 1)
-        # Baseline confidence is high for standard clinical boundaries
         return avg_score, 0.95
 
-    def train_model(self, X: pd.DataFrame, y: pd.Series):
+    def train_model(self, X, y):
         """Train the classifier model and save it to models/ folder."""
+        if not ML_AVAILABLE:
+            raise RuntimeError("Cannot train model: scikit-learn is not installed in this environment.")
+
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.preprocessing import StandardScaler
 

@@ -1,12 +1,9 @@
+# Lightweight Production requirements for Vercel Serverless Functions
+# Excludes heavy ML libraries (pandas, numpy, scikit-learn, xgboost, shap) to fit within AWS Lambda size limits
 flask>=3.0
 flask-sqlalchemy>=3.1
 sqlalchemy>=2.0
 requests>=2.31
-pandas>=2.0
-numpy>=1.26
-scikit-learn>=1.4
-xgboost>=2.0
-shap>=0.44
 supabase>=2.3
 python-dotenv>=1.0
 psycopg2-binary>=2.9

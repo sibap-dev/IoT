@@ -1,0 +1,13 @@
+# Local Development & Simulation requirements (includes full ML features)
+# Install locally with: pip install -r requirements-local.txt
+
+# Base production requirements
+-r requirements.txt
+
+# Heavy ML stack
+pandas>=2.0
+numpy>=1.26
+scikit-learn>=1.4
+xgboost>=2.0
+shap>=0.44
+joblib>=1.3

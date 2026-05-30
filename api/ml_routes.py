@@ -1,20 +1,40 @@
 from flask import Blueprint, request, jsonify
 from database.db import db
 from database.models import ModelMetrics, HealthReading
-from modules.simulation_module import RealisticSensorSimulator
 from ml.predictor import HealthPredictor
 from datetime import datetime, timezone
-import pandas as pd
-import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
 
 ml_routes_bp = Blueprint("ml_routes_api", __name__)
 
+# Try optional heavy scientific packages
+try:
+    import pandas as pd
+    import numpy as np
+    from modules.simulation_module import RealisticSensorSimulator
+    ML_ROUTES_AVAILABLE = True
+except ImportError:
+    ML_ROUTES_AVAILABLE = False
+    logger.warning("Scientific packages (pandas/numpy) not found. Simulation and training endpoints disabled.")
+
 @ml_routes_bp.route("/api/conditions", methods=["GET"])
 def get_conditions():
     """Return all available health condition profiles for simulator panel."""
+    if not ML_ROUTES_AVAILABLE:
+        # Fallback list of conditions
+        return jsonify({
+            "conditions": ["NORMAL", "TACHYCARDIA", "HYPOXIA", "FEVER", "CRITICAL"],
+            "profiles": {
+                "NORMAL": "Normal healthy condition",
+                "TACHYCARDIA": "Elevated heart rate condition",
+                "HYPOXIA": "Low oxygen saturation condition",
+                "FEVER": "Elevated body temperature condition",
+                "CRITICAL": "Critical condition with unstable vitals"
+            }
+        })
+
     from modules.simulation_module import HEALTH_CONDITION_PROFILES
     profiles = {}
     for name, prof in HEALTH_CONDITION_PROFILES.items():
@@ -30,8 +50,13 @@ def get_conditions():
 def simulate_vitals():
     """
     Simulates vital sign sequence.
-    Payload: { "condition": "NORMAL", "n_samples": 50, "enable_transitions": false }
     """
+    if not ML_ROUTES_AVAILABLE:
+        return jsonify({
+            "error": "Simulation engine is not available in this environment due to serverless package limits.",
+            "success": False
+        }), 503
+
     data = request.get_json(silent=True) or {}
     condition = data.get("condition", "NORMAL").upper()
     n_samples = int(data.get("n_samples", 50))
@@ -66,8 +91,13 @@ def simulate_vitals():
 def train_model():
     """
     Train Random Forest Classifier.
-    Payload: { "use_grid_search": false, "samples_per_condition": 200 }
     """
+    if not ML_ROUTES_AVAILABLE:
+        return jsonify({
+            "error": "Model training is not supported in this environment due to serverless package limits.",
+            "success": False
+        }), 503
+
     data = request.get_json(silent=True) or {}
     use_grid_search = bool(data.get("use_grid_search", False))
     samples_per_condition = int(data.get("samples_per_condition", 200))
@@ -83,7 +113,6 @@ def train_model():
 
         # Prepare X and y
         X = df_train[["BPM", "SPO2", "Body_Temp"]]
-        # Rename columns to match what predictor expects
         X.columns = ["BPM", "SPO2", "Body_Temp"]
         y = df_train["Condition"]
 
