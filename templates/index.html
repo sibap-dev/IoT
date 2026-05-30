@@ -1149,7 +1149,12 @@ async function loadDashboard() {
         if (bpmCard) { bpmCard.classList.add('card-danger'); }
       }
     } else {
-      document.getElementById('last-updated').textContent = 'Waiting for sensor telemetry stream... (run sensor_simulator.py)';
+      document.getElementById('last-updated').innerHTML = 
+        `<span style="color:var(--yellow);font-weight:500">⚠️ No telemetry streams found. </span>` +
+        `<span style="margin-left:5px;color:var(--muted)">Inject demo: </span>` +
+        `<button class="btn btn-primary btn-sm" style="padding:2px 8px;font-size:0.7rem;margin-left:4px;background:#3fb950;border-color:#3fb950" onclick="injectDemoReading('normal')">🟢 Normal</button>` +
+        `<button class="btn btn-primary btn-sm" style="padding:2px 8px;font-size:0.7rem;margin-left:4px;background:#d29922;border-color:#d29922" onclick="injectDemoReading('low_spo2')">🫁 Hypoxia</button>` +
+        `<button class="btn btn-primary btn-sm" style="padding:2px 8px;font-size:0.7rem;margin-left:4px;background:#f85149;border-color:#f85149" onclick="injectDemoReading('fall')">💥 Fall</button>`;
     }
 
     if (predRes.prediction) {
@@ -1293,6 +1298,45 @@ async function dismissAlert(id) {
     await fetch('/api/alerts/' + id + '/read', { method: 'PATCH' });
   } catch(e) {}
   setTimeout(() => { if (card) card.remove(); }, 280);
+}
+
+async function injectDemoReading(type) {
+  let hr = 72 + Math.floor(Math.random() * 10);
+  let spo2 = 97.5 + Math.random() * 2;
+  let temp = 36.6 + Math.random() * 0.5;
+  let fall = false;
+
+  if (type === 'low_spo2') {
+    spo2 = 89.2;
+    hr = 104;
+  } else if (type === 'fall') {
+    fall = true;
+    hr = 112;
+  }
+
+  // Clip ranges
+  spo2 = Math.min(100, Math.max(70, spo2));
+  
+  try {
+    const res = await fetch('/api/sensor-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        heart_rate: hr,
+        spo2: spo2,
+        temperature: temp,
+        fall_detected: fall
+      })
+    }).then(r => r.json());
+
+    if (res.success) {
+      loadDashboard();
+    } else {
+      alert('Error injecting: ' + (res.error || 'Unknown error'));
+    }
+  } catch(e) {
+    alert('Injection request failed. Make sure your server is running.');
+  }
 }
 
 function trendChart(el, x, y, color, name) {
