@@ -1,0 +1,21 @@
+# Exclude local development files, environment configs, and documentation from Vercel deployment bundle
+.venv/
+venv/
+.git/
+.vscode/
+database/iot_healthcare.db
+*.ipynb
+*.jpeg
+*.jpg
+*.JPG
+*.png
+.env
+.env.*
+server_log.txt
+HARDWARE_GUIDE.md
+hardware_off.JPG
+hardware_on.jpg
+dashboard_bpm.jpeg
+dashboard_spo2.jpeg
+dashboard_temp.jpeg
+dashboard_table.jpeg
