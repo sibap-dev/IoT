@@ -17,3 +17,6 @@ db = SQLAlchemy(metadata=metadata)
 def init_db(app):
     """Initialize Flask-SQLAlchemy with pure connector binding."""
     db.init_app(app)
+    with app.app_context():
+        import database.models
+        db.create_all()

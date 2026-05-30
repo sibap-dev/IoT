@@ -50,7 +50,10 @@ class Config:
         SQLALCHEMY_DATABASE_URI = _db_url
     else:
         # Unreachable cloud db or offline -> Fallback silently to high-performance local SQLite database
-        SQLALCHEMY_DATABASE_URI = f"sqlite:///{BASE_DIR / 'database' / 'iot_healthcare.db'}"
+        if os.environ.get("VERCEL") == "1":
+            SQLALCHEMY_DATABASE_URI = "sqlite://"
+        else:
+            SQLALCHEMY_DATABASE_URI = f"sqlite:///{BASE_DIR / 'database' / 'iot_healthcare.db'}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     HR_MIN = 60
