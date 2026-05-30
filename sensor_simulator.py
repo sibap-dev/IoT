@@ -99,7 +99,7 @@ def main():
     parser.add_argument("--count", type=int, default=0,
                         help="Number of readings to send (0 = infinite)")
     parser.add_argument("--url", type=str,
-                        default="http://localhost:5000/api/sensor-data",
+                        default="http://localhost:5001/api/sensor-data",
                         help="API endpoint URL")
     parser.add_argument("--patient-id", type=str, default=None,
                         help="Optional patient/device identifier")
