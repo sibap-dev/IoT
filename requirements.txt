@@ -1,5 +1,6 @@
 # Lightweight Production requirements for Vercel Serverless Functions
-# Excludes heavy ML libraries (pandas, numpy, scikit-learn, xgboost, shap) to fit within AWS Lambda size limits
+# ML inference is handled by the remote HuggingFace Spaces microservice (ml_service/)
+# PyTorch / scikit-learn intentionally excluded — they exceed Vercel's 250MB limit
 flask>=3.0
 flask-sqlalchemy>=3.1
 sqlalchemy>=2.0

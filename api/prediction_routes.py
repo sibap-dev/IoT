@@ -59,6 +59,8 @@ def predict():
         fall_detected=fall_detected,
         reading_id=health_reading_id,
         patient_id=patient_id,
+        risk_level=result.get("risk_level"),
+        risk_score=result.get("risk_score"),
     )
 
     return jsonify({

@@ -1,0 +1,527 @@
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #050816; }
+  #splash {
+    width: 100%;
+    max-width: 390px;
+    aspect-ratio: 9/16;
+    background: #050816;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    border-radius: 24px;
+  }
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+  #ui {
+    position: absolute;
+    bottom: 14%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    pointer-events: none;
+  }
+  #ui.visible { opacity: 1; transform: translateY(0); }
+  #brand {
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #00e5ff 0%, #2979ff 60%, #00e5ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  #tagline {
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(100, 200, 255, 0.7);
+  }
+  #ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    box-shadow: 0 0 40px rgba(0, 229, 255, 0.15), inset 0 0 40px rgba(0, 229, 255, 0.05);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+  }
+  #ring.expand {
+    transform: translate(-50%, -50%) scale(3.5);
+    opacity: 0;
+  }
+  #logo-svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    width: 80px;
+    height: 80px;
+    filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.8)) drop-shadow(0 0 40px rgba(41, 121, 255, 0.5));
+  }
+  #logo-svg.visible { opacity: 1; }
+</style>
+
+<div id="splash">
+  <canvas id="c"></canvas>
+  <div id="ring"></div>
+  <svg id="logo-svg" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="40" cy="40" r="36" fill="rgba(0,229,255,0.08)" stroke="rgba(0,229,255,0.5)" stroke-width="0.5"/>
+    <path d="M40 56 C40 56 22 44 22 33 C22 26 27.5 22 33 22 C36.5 22 39 24 40 26 C41 24 43.5 22 47 22 C52.5 22 58 26 58 33 C58 44 40 56 40 56Z" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="1.2"/>
+    <path d="M28 33 L32 33 L35 27 L38 38 L41 30 L43 33 L52 33" stroke="#00e5ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="28" cy="62" r="3" fill="rgba(41,121,255,0.6)" stroke="rgba(41,121,255,0.8)" stroke-width="0.5"/>
+    <circle cx="40" cy="65" r="3" fill="rgba(0,229,255,0.6)" stroke="rgba(0,229,255,0.8)" stroke-width="0.5"/>
+    <circle cx="52" cy="62" r="3" fill="rgba(41,121,255,0.6)" stroke="rgba(41,121,255,0.8)" stroke-width="0.5"/>
+    <line x1="28" y1="62" x2="40" y2="65" stroke="rgba(0,229,255,0.4)" stroke-width="0.5"/>
+    <line x1="40" y1="65" x2="52" y2="62" stroke="rgba(0,229,255,0.4)" stroke-width="0.5"/>
+    <line x1="28" y1="62" x2="52" y2="62" stroke="rgba(41,121,255,0.3)" stroke-width="0.5"/>
+  </svg>
+  <div id="ui">
+    <div id="brand">MediCare</div>
+    <div id="tagline">AI-Powered Healthcare Monitoring</div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  const splash = document.getElementById('splash');
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const ring = document.getElementById('ring');
+  const logoSvg = document.getElementById('logo-svg');
+  const ui = document.getElementById('ui');
+
+  function resize() {
+    canvas.width = splash.offsetWidth;
+    canvas.height = splash.offsetHeight;
+  }
+  resize();
+
+  const W = () => canvas.width;
+  const H = () => canvas.height;
+  const CX = () => W() / 2;
+  const CY = () => H() / 2;
+
+  let t = 0;
+  let phase = 0;
+  let phaseT = 0;
+  const PHASES = {
+    DARK: 0,
+    PARTICLE_APPEAR: 1,
+    ECG_LINE: 2,
+    HEART_FORM: 3,
+    HEART_BEAT: 4,
+    NEURAL: 5,
+    NEURAL_CONVERGE: 6,
+    LOGO: 7,
+    BRAND: 8
+  };
+
+  const C = {
+    bg: '#050816',
+    cyan: '#00e5ff',
+    blue: '#2979ff',
+    cyanA: (a) => `rgba(0,229,255,${a})`,
+    blueA: (a) => `rgba(41,121,255,${a})`,
+    white: (a) => `rgba(255,255,255,${a})`
+  };
+
+  let particles = [];
+  let ecgProgress = 0;
+  let heartParticles = [];
+  let neuralNodes = [];
+  let neuralEdges = [];
+  let neuralConverge = 0;
+  let logoScale = 0;
+  let ambientParticles = [];
+  let heartBeat = 0;
+  let heartScale = 1;
+
+  function easeInOut(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function initAmbientParticles() {
+    ambientParticles = [];
+    for (let i = 0; i < 60; i++) {
+      ambientParticles.push({
+        x: Math.random() * W(),
+        y: Math.random() * H(),
+        r: Math.random() * 1.5 + 0.3,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        a: Math.random() * 0.4 + 0.1,
+        color: Math.random() > 0.5 ? C.cyan : C.blue
+      });
+    }
+  }
+
+  function initHeartParticles() {
+    heartParticles = [];
+    const cx = CX(), cy = CY();
+    for (let i = 0; i < 280; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const t2 = Math.random();
+      const ht = Math.random() * Math.PI * 2;
+      const hx = 16 * Math.pow(Math.sin(ht), 3);
+      const hy = -(13 * Math.cos(ht) - 5 * Math.cos(2*ht) - 2 * Math.cos(3*ht) - Math.cos(4*ht));
+      const scale = 4.5;
+      heartParticles.push({
+        tx: cx + hx * scale,
+        ty: cy + hy * scale - 20,
+        x: cx + (Math.random()-0.5)*W()*0.6,
+        y: cy + (Math.random()-0.5)*H()*0.4,
+        r: Math.random() * 2 + 0.5,
+        a: Math.random() * 0.8 + 0.2,
+        color: Math.random() > 0.4 ? C.cyan : C.blue,
+        delay: Math.random() * 0.3
+      });
+    }
+  }
+
+  function initNeuralNodes() {
+    neuralNodes = [];
+    neuralEdges = [];
+    const cx = CX(), cy = CY();
+    const count = 40;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 130 + 20;
+      neuralNodes.push({
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius * 0.7,
+        tx: cx,
+        ty: cy,
+        r: Math.random() * 3 + 1,
+        a: Math.random() * 0.7 + 0.3,
+        color: Math.random() > 0.5 ? C.cyan : C.blue,
+        pulse: Math.random() * Math.PI * 2
+      });
+    }
+    for (let i = 0; i < count; i++) {
+      for (let j = i+1; j < count; j++) {
+        const dx = neuralNodes[i].x - neuralNodes[j].x;
+        const dy = neuralNodes[i].y - neuralNodes[j].y;
+        if (Math.sqrt(dx*dx+dy*dy) < 80) {
+          neuralEdges.push({ i, j });
+        }
+      }
+    }
+  }
+
+  function drawAmbient(alpha) {
+    ambientParticles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = p.color.replace(')', `,${p.a * alpha})`).replace('rgb','rgba').replace('rgba(rgba','rgba');
+      const c = p.color === C.cyan ? `rgba(0,229,255,${p.a*alpha})` : `rgba(41,121,255,${p.a*alpha})`;
+      ctx.fillStyle = c;
+      ctx.fill();
+    });
+  }
+
+  function updateAmbient() {
+    ambientParticles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W(); if (p.x > W()) p.x = 0;
+      if (p.y < 0) p.y = H(); if (p.y > H()) p.y = 0;
+    });
+  }
+
+  function drawECG(progress, alpha) {
+    const startX = CX() - W()*0.4;
+    const endX = CX() + W()*0.4;
+    const y0 = CY();
+    const drawTo = startX + (endX - startX) * Math.min(progress, 1);
+    ctx.save();
+    ctx.strokeStyle = C.cyanA(alpha);
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = C.cyan;
+    ctx.beginPath();
+    const steps = 200;
+    let first = true;
+    for (let i = 0; i <= steps; i++) {
+      const frac = i / steps;
+      const px = startX + (endX - startX) * frac;
+      if (px > drawTo) break;
+      const norm = (px - startX) / (endX - startX);
+      let yOff = 0;
+      const cycle = (norm * 3) % 1;
+      if (cycle < 0.15) { yOff = Math.sin(cycle/0.15*Math.PI)*3; }
+      else if (cycle > 0.35 && cycle < 0.45) { yOff = -Math.sin((cycle-0.35)/0.1*Math.PI)*35; }
+      else if (cycle >= 0.45 && cycle < 0.55) { yOff = Math.sin((cycle-0.45)/0.1*Math.PI)*15; }
+      else if (cycle >= 0.55 && cycle < 0.65) { yOff = -Math.sin((cycle-0.55)/0.1*Math.PI)*8; }
+      if (first) { ctx.moveTo(px, y0+yOff); first=false; }
+      else ctx.lineTo(px, y0+yOff);
+    }
+    ctx.stroke();
+    if (progress < 1) {
+      const tipX = drawTo;
+      const tipNorm = (drawTo - startX) / (endX - startX);
+      const tipCycle = (tipNorm * 3) % 1;
+      let tipY = y0;
+      if (tipCycle < 0.15) tipY = y0 + Math.sin(tipCycle/0.15*Math.PI)*3;
+      else if (tipCycle > 0.35 && tipCycle < 0.45) tipY = y0 - Math.sin((tipCycle-0.35)/0.1*Math.PI)*35;
+      ctx.beginPath();
+      ctx.arc(tipX, tipY, 4, 0, Math.PI*2);
+      ctx.fillStyle = C.cyanA(alpha);
+      ctx.shadowBlur = 20;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawHeart(progress, beat) {
+    const cx = CX(), cy = CY() - 20;
+    const sp = easeOut(Math.min(progress * 1.4, 1));
+    heartParticles.forEach((p, i) => {
+      const dp = Math.max(0, (progress - p.delay) / (1 - Math.min(p.delay, 0.25)));
+      const ep = easeOut(Math.min(dp, 1));
+      const px = lerp(p.x, p.tx, ep);
+      const py = lerp(p.y, p.ty, ep);
+      const beatOff = beat * 8 * Math.sin(i * 0.1);
+      const beatPx = px + (px - cx) * beat * 0.15;
+      const beatPy = py + (py - cy) * beat * 0.15;
+      const r = p.r * (1 + beat * 0.3);
+      ctx.beginPath();
+      ctx.arc(beatPx, beatPy, r, 0, Math.PI*2);
+      const a = ep * p.a;
+      ctx.fillStyle = p.color === C.cyan ? `rgba(0,229,255,${a})` : `rgba(41,121,255,${a})`;
+      ctx.shadowBlur = 8 + beat*8;
+      ctx.shadowColor = p.color;
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  function drawNeural(progress, converge) {
+    neuralNodes.forEach((n, i) => {
+      const cx2 = CX(), cy2 = CY();
+      const px = lerp(n.x, cx2, easeInOut(Math.min(converge * 1.5, 1)));
+      const py = lerp(n.y, cy2, easeInOut(Math.min(converge * 1.5, 1)));
+      n._px = px; n._py = py;
+    });
+    const angle = phaseT * 0.3;
+    ctx.save();
+    ctx.translate(CX(), CY());
+    ctx.rotate(angle * 0.05);
+    ctx.translate(-CX(), -CY());
+    neuralEdges.forEach(e => {
+      const a = neuralNodes[e.i], b = neuralNodes[e.j];
+      if (!a._px || !b._px) return;
+      const fade = 1 - Math.min(converge * 2, 1) * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(a._px, a._py);
+      ctx.lineTo(b._px, b._py);
+      ctx.strokeStyle = `rgba(41,121,255,${0.25 * progress * fade})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    });
+    neuralNodes.forEach((n, i) => {
+      const pulse = Math.sin(phaseT * 2 + n.pulse) * 0.5 + 0.5;
+      const r = n.r * (1 + pulse * 0.4) * (1 - converge * 0.7);
+      const a = n.a * progress * (1 - converge * 0.8);
+      ctx.beginPath();
+      ctx.arc(n._px, n._py, Math.max(r, 0.1), 0, Math.PI*2);
+      ctx.fillStyle = n.color === C.cyan ? `rgba(0,229,255,${a})` : `rgba(41,121,255,${a})`;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = n.color;
+      ctx.fill();
+    });
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawGlassRing(alpha) {
+    const cx = CX(), cy = CY();
+    const r = 70;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(0,229,255,${0.4 * alpha})`;
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = C.cyan;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.8, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(41,121,255,${0.2 * alpha})`;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  initAmbientParticles();
+  initHeartParticles();
+  initNeuralNodes();
+
+  const phaseTimes = [300, 600, 1400, 2100, 2700, 3200, 3700, 4200, 4800];
+
+  let startTime = null;
+  let lastPhase = -1;
+
+  function draw(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = ts - startTime;
+    t = elapsed;
+
+    phase = 0;
+    for (let i = phaseTimes.length - 1; i >= 0; i--) {
+      if (elapsed >= phaseTimes[i]) { phase = i; break; }
+    }
+    if (phase !== lastPhase) {
+      phaseT = 0;
+      lastPhase = phase;
+    }
+    phaseT += 1;
+
+    const pStart = phaseTimes[phase] || 0;
+    const pEnd = phaseTimes[phase + 1] || pStart + 1000;
+    const pt = Math.min((elapsed - pStart) / (pEnd - pStart), 1);
+
+    ctx.clearRect(0, 0, W(), H());
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W(), H());
+
+    updateAmbient();
+
+    if (phase === PHASES.DARK) {
+      const a = easeInOut(pt);
+      drawAmbient(a * 0.3);
+      const r = 3 + a * 3;
+      ctx.beginPath();
+      ctx.arc(CX(), CY(), r, 0, Math.PI*2);
+      ctx.fillStyle = C.cyanA(a * 0.9);
+      ctx.shadowBlur = 30 * a;
+      ctx.shadowColor = C.cyan;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    if (phase === PHASES.PARTICLE_APPEAR) {
+      drawAmbient(0.4);
+      const pulse = 0.5 + 0.5 * Math.sin(pt * Math.PI * 4);
+      const r = 4 + pulse * 4;
+      ctx.beginPath();
+      ctx.arc(CX(), CY(), r, 0, Math.PI*2);
+      ctx.fillStyle = C.cyanA(0.9);
+      ctx.shadowBlur = 40;
+      ctx.shadowColor = C.cyan;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      if (pt > 0.5) {
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2 + pt * 2;
+          const dist = 20 + (pt - 0.5) * 60;
+          const px2 = CX() + Math.cos(angle) * dist;
+          const py2 = CY() + Math.sin(angle) * dist;
+          const pa = (1 - (pt - 0.5) * 2) * 0.6;
+          ctx.beginPath();
+          ctx.arc(px2, py2, 1.5, 0, Math.PI*2);
+          ctx.fillStyle = C.cyanA(pa);
+          ctx.fill();
+        }
+      }
+    }
+
+    if (phase === PHASES.ECG_LINE) {
+      drawAmbient(0.5);
+      ecgProgress = easeInOut(pt) * 1.1;
+      drawECG(ecgProgress, 1);
+      for (let i = 0; i < 6; i++) {
+        const xp = CX() - W()*0.4 + (ecgProgress * (W()*0.8)) * Math.random();
+        const yp = CY() + (Math.random()-0.5) * 60;
+        ctx.beginPath();
+        ctx.arc(xp, yp, Math.random()*1.5+0.5, 0, Math.PI*2);
+        ctx.fillStyle = C.cyanA(Math.random()*0.5);
+        ctx.fill();
+      }
+    }
+
+    if (phase === PHASES.HEART_FORM) {
+      drawAmbient(0.6);
+      drawECG(1, 1 - easeOut(pt));
+      drawHeart(pt, 0);
+    }
+
+    if (phase === PHASES.HEART_BEAT) {
+      drawAmbient(0.6);
+      heartScale = 1;
+      heartBeat = Math.sin(pt * Math.PI) * 0.5;
+      if (pt > 0.3 && pt < 0.7) {
+        heartBeat = Math.sin((pt - 0.3) / 0.4 * Math.PI);
+      } else {
+        heartBeat = 0;
+      }
+      drawHeart(1, heartBeat);
+    }
+
+    if (phase === PHASES.NEURAL) {
+      drawAmbient(0.7);
+      const hAlpha = 1 - easeOut(pt);
+      if (hAlpha > 0) drawHeart(1, 0);
+      drawNeural(easeOut(pt), 0);
+    }
+
+    if (phase === PHASES.NEURAL_CONVERGE) {
+      drawAmbient(0.7);
+      neuralConverge = easeInOut(pt);
+      drawNeural(1, neuralConverge);
+    }
+
+    if (phase === PHASES.LOGO) {
+      drawAmbient(0.8);
+      drawGlassRing(easeOut(pt));
+      logoScale = easeOut(pt);
+      logoSvg.style.opacity = logoScale;
+      logoSvg.style.transform = `translate(-50%, -50%) scale(${0.5 + logoScale * 0.5})`;
+    }
+
+    if (phase === PHASES.BRAND) {
+      drawAmbient(0.9);
+      drawGlassRing(1);
+      logoSvg.classList.add('visible');
+      ring.style.transition = 'transform 1.2s cubic-bezier(0.16,1,0.3,1), opacity 1.2s ease';
+      ring.style.transform = `translate(-50%, -50%) scale(${1 + pt * 4})`;
+      ring.style.opacity = String((1 - pt) * 0.6);
+      if (pt > 0.3) {
+        ui.classList.add('visible');
+      }
+    }
+
+    if (phase === PHASES.BRAND && pt >= 1) {
+      try { window.parent.postMessage('bootComplete', '*'); } catch(e) {}
+      return;
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+
+})();
+</script>

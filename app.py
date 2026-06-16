@@ -22,9 +22,8 @@ from flask import Flask, render_template, jsonify
 
 from config import Config
 from database.db import init_db
-from api import sensor_bp, prediction_bp, alert_bp
+from api import sensor_bp, prediction_bp, alert_bp, ml_routes_bp, profile_bp
 from routes.auth import auth_bp
-from api.ml_routes import ml_routes_bp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder='templates', static_url_path='/static')
     app.config.from_object(Config)
     app.secret_key = app.config.get("SECRET_KEY")
 
@@ -47,6 +46,7 @@ def create_app():
     app.register_blueprint(alert_bp)        # /api/alerts, /api/alerts/<id>/read
     app.register_blueprint(auth_bp)         # /api/auth/signup, /api/auth/login, /api/auth/logout, /api/auth/session
     app.register_blueprint(ml_routes_bp)    # /api/train, /api/simulate, /api/conditions
+    app.register_blueprint(profile_bp)      # /api/profile, /api/health-history
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
     @app.route("/")
@@ -110,14 +110,14 @@ if __name__ == "__main__":
     print("  Health     -> http://localhost:5001/health")
     print("  Sensor API -> POST http://localhost:5001/api/sensor-data")
     if IS_VERCEL:
-        print("  [Vercel]  Running in serverless mode — simulator disabled\n")
+       print("  [Vercel]  Running in serverless mode — simulator disabled\n")
     else:
         print("  Simulator  -> python sensor_simulator.py\n")
         # Spawn background simulator only in local dev, only in the active worker
-        if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-            threading.Thread(target=start_simulator, daemon=True).start()
-        elif not os.environ.get("WERKZEUG_RUN_MAIN"):
-            threading.Thread(target=start_simulator, daemon=True).start()
+     #   if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+       #     threading.Thread(target=start_simulator, daemon=True).start()
+        #elif not os.environ.get("WERKZEUG_RUN_MAIN"):
+        #    threading.Thread(target=start_simulator, daemon=True).start()
 
     app.run(debug=not IS_VERCEL, host="0.0.0.0", port=5001, use_reloader=not IS_VERCEL)
 

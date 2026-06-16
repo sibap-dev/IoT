@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Keep models/ — they need to be committed for HuggingFace Spaces Docker build
+# (all 5 .pth files + isolation_forest.joblib are small, ~700KB total)
+
+# Local dev
+*.log
+.DS_Store

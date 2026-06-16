@@ -1,9 +1,14 @@
+import logging
 from datetime import datetime, timezone
+from sqlalchemy import or_
 from flask import Blueprint, jsonify, request
 from database.db import db
 from database.models import HealthReading
 from services.prediction_service import PredictionService
 from services.alert_service import AlertService
+from services.stability_filter import process_sensor_data, get_filter
+
+logger = logging.getLogger(__name__)
 
 sensor_bp = Blueprint("sensor_api", __name__)
 
@@ -11,52 +16,8 @@ REQUIRED_FIELDS = ["heart_rate", "spo2", "temperature"]
 OPTIONAL_FIELDS = ["fall_detected", "patient_id"]
 
 
-def ensure_recent_reading(patient_id=None):
-    from datetime import datetime, timezone
-    import random
-    
-    reading = HealthReading.query.order_by(HealthReading.created_at.desc()).first()
-    elapsed = (datetime.now(timezone.utc) - reading.created_at.replace(tzinfo=timezone.utc)).total_seconds() if reading else None
-    
-    if not reading or (elapsed and elapsed > 8.0):
-        hr = round(random.uniform(70.0, 85.0), 1)
-        spo2 = round(random.uniform(96.0, 99.0), 1)
-        temp = round(random.uniform(36.5, 37.2), 1)
-        fall = False
-        
-        sim_reading = HealthReading(
-            patient_id=patient_id,
-            timestamp=datetime.now(timezone.utc),
-            heart_rate=hr,
-            spo2=spo2,
-            temperature=temp,
-            fall_detected=fall,
-            acceleration_x=round(random.uniform(-0.02, 0.02), 3),
-            acceleration_y=round(random.uniform(-0.02, 0.02), 3),
-            acceleration_z=round(random.uniform(0.97, 1.03), 3)
-        )
-        db.session.add(sim_reading)
-        db.session.flush()
-
-        PredictionService.run_prediction(
-            heart_rate=hr,
-            spo2=spo2,
-            temperature=temp,
-            fall_detected=fall,
-            health_reading_id=sim_reading.id,
-            patient_id=patient_id
-        )
-
-        AlertService.check_reading(
-            heart_rate=hr,
-            spo2=spo2,
-            temperature=temp,
-            fall_detected=fall,
-            reading_id=sim_reading.id,
-            patient_id=patient_id
-        )
-
-        db.session.commit()
+# NOTE: Auto-simulator removed — data now comes exclusively from the ESP32 wearable.
+# To re-enable simulated data for testing, run: python sensor_simulator.py
 
 
 def validate_payload(data):
@@ -97,16 +58,19 @@ def receive_sensor_data():
     """
     data = request.get_json(silent=True)
     if not data:
+        logger.error("[ESP32] 400: Raw body = %s", request.data)
         return jsonify({"error": "Request body must be valid JSON"}), 400
 
+    logger.info("[ESP32] Received: %s", data)
     validation_error = validate_payload(data)
     if validation_error:
+        logger.error("[ESP32] 400 Validation failed: %s | Data was: %s", validation_error[0], data)
         return jsonify(validation_error[0]), validation_error[1]
 
     heart_rate = float(data["heart_rate"])
     spo2 = float(data["spo2"])
     temperature = float(data["temperature"])
-    fall_detected = bool(data.get("fall_detected", False))
+    fall_detected = bool(data.get("fall_detected", data.get("fall", data.get("is_fall", False))))
     patient_id = data.get("patient_id")
 
     acc_x = float(data.get("acceleration_x", 0.0))
@@ -127,22 +91,35 @@ def receive_sensor_data():
     db.session.add(reading)
     db.session.flush()
 
-    prediction, pred_result = PredictionService.run_prediction(
+    filtered = process_sensor_data(
         heart_rate=heart_rate,
         spo2=spo2,
         temperature=temperature,
+        fall_detected=fall_detected,
+        accel_x=acc_x,
+        accel_y=acc_y,
+        accel_z=acc_z,
+        patient_id=patient_id,
+    )
+
+    prediction, pred_result = PredictionService.run_prediction(
+        heart_rate=filtered["heart_rate"],
+        spo2=filtered["spo2"],
+        temperature=filtered["temperature"],
         fall_detected=fall_detected,
         health_reading_id=reading.id,
         patient_id=patient_id,
     )
 
     alerts = AlertService.check_reading(
-        heart_rate=heart_rate,
-        spo2=spo2,
-        temperature=temperature,
+        heart_rate=filtered["heart_rate"],
+        spo2=filtered["spo2"],
+        temperature=filtered["temperature"],
         fall_detected=fall_detected,
         reading_id=reading.id,
         patient_id=patient_id,
+        risk_level=pred_result.get("risk_level"),
+        risk_score=pred_result.get("risk_score"),
     )
 
     db.session.commit()
@@ -150,6 +127,12 @@ def receive_sensor_data():
     return jsonify({
         "status": "success",
         "reading": reading.to_dict(),
+        "filtered": {
+            "heart_rate": filtered["heart_rate"],
+            "spo2": filtered["spo2"],
+            "temperature": filtered["temperature"],
+            "stability_status": filtered["stability_status"],
+        },
         "prediction": pred_result,
         "alerts": [a.to_dict() for a in alerts],
     }), 201
@@ -159,18 +142,28 @@ def receive_sensor_data():
 def get_latest_data():
     """
     Return the most recent HealthReading from the database.
+    Includes is_live=True only if data arrived within the last 30 seconds.
     """
     patient_id = request.args.get("patient_id")
-    ensure_recent_reading(patient_id)
     q = HealthReading.query.order_by(HealthReading.created_at.desc())
     if patient_id:
         q = q.filter_by(patient_id=patient_id)
     reading = q.first()
 
     if not reading:
-        return jsonify({"error": "No data available yet"}), 404
+        return jsonify({"error": "No data available yet", "is_live": False}), 404
 
-    return jsonify({"reading": reading.to_dict()})
+    # Freshness check — data must be < 30 seconds old to be considered live
+    now = datetime.now(timezone.utc)
+    created = reading.created_at.replace(tzinfo=timezone.utc) if reading.created_at.tzinfo is None else reading.created_at
+    seconds_ago = (now - created).total_seconds()
+    is_live = seconds_ago < 30
+
+    return jsonify({
+        "reading": reading.to_dict(),
+        "is_live": is_live,
+        "seconds_ago": round(seconds_ago)
+    })
 
 
 @sensor_bp.route("/api/sensor-history", methods=["GET"])
@@ -190,11 +183,12 @@ def get_sensor_history():
     patient_id = request.args.get("patient_id")
     since = request.args.get("since")
 
-    ensure_recent_reading(patient_id)
+    # Real-time mode: no auto-simulation — waits for live ESP32 data
     q = HealthReading.query.order_by(HealthReading.created_at.desc())
 
+
     if patient_id:
-        q = q.filter_by(patient_id=patient_id)
+        q = q.filter(or_(HealthReading.patient_id == patient_id, HealthReading.patient_id.is_(None)))
     if since:
         try:
             since_dt = datetime.fromisoformat(since)
@@ -211,3 +205,11 @@ def get_sensor_history():
         "offset": offset,
         "readings": [r.to_dict() for r in readings],
     })
+
+
+@sensor_bp.route("/api/stability-status", methods=["GET"])
+def get_stability_status():
+    patient_id = request.args.get("patient_id")
+    sf = get_filter(patient_id)
+    state = sf.get_state()
+    return jsonify(state)

@@ -46,70 +46,119 @@ class AlertService:
 
     @classmethod
     def check_reading(cls, heart_rate, spo2, temperature, fall_detected,
-                      reading_id=None, patient_id=None):
+                      reading_id=None, patient_id=None,
+                      risk_level=None, risk_score=None):
         alerts = []
 
         hr_t = cls.THRESHOLDS["heart_rate"]
         if heart_rate > hr_t["crit_max"]:
             alerts.append(cls._build_alert(
                 "heart_rate", "critical",
-                f"Critical: Heart rate {heart_rate} bpm is dangerously high!",
+                f"Heart rate {heart_rate} bpm – dangerously high! Immediate attention needed.",
                 heart_rate, hr_t["crit_max"], reading_id, patient_id))
         elif heart_rate < hr_t["crit_min"]:
             alerts.append(cls._build_alert(
                 "heart_rate", "critical",
-                f"Critical: Heart rate {heart_rate} bpm is dangerously low!",
+                f"Heart rate {heart_rate} bpm – dangerously low! Immediate attention needed.",
                 heart_rate, hr_t["crit_min"], reading_id, patient_id))
         elif heart_rate > hr_t["warn_max"]:
             alerts.append(cls._build_alert(
-                "heart_rate", "warning",
-                f"Warning: Heart rate {heart_rate} bpm is elevated!",
+                "heart_rate", "high",
+                f"Heart rate {heart_rate} bpm – elevated. Monitor closely.",
                 heart_rate, hr_t["warn_max"], reading_id, patient_id))
         elif heart_rate < hr_t["min"]:
             alerts.append(cls._build_alert(
-                "heart_rate", "warning",
-                f"Warning: Heart rate {heart_rate} bpm is below normal!",
+                "heart_rate", "high",
+                f"Heart rate {heart_rate} bpm – below normal. Monitor closely.",
                 heart_rate, hr_t["min"], reading_id, patient_id))
+        elif heart_rate > hr_t["max"]:
+            alerts.append(cls._build_alert(
+                "heart_rate", "medium",
+                f"Heart rate {heart_rate} bpm – slightly elevated.",
+                heart_rate, hr_t["max"], reading_id, patient_id))
 
         spo2_t = cls.THRESHOLDS["spo2"]
         if spo2 < spo2_t["crit_min"]:
             alerts.append(cls._build_alert(
                 "spo2", "critical",
-                f"Critical: SpO2 {spo2}% is dangerously low!",
+                f"SpO2 {spo2}% – critically low! Oxygen support may be needed.",
                 spo2, spo2_t["crit_min"], reading_id, patient_id))
         elif spo2 < spo2_t["warn_min"]:
             alerts.append(cls._build_alert(
-                "spo2", "warning",
-                f"Warning: SpO2 {spo2}% is below normal!",
+                "spo2", "high",
+                f"SpO2 {spo2}% – below normal range. Monitor breathing.",
                 spo2, spo2_t["warn_min"], reading_id, patient_id))
 
         temp_t = cls.THRESHOLDS["temperature"]
         if temperature > temp_t["crit_max"]:
             alerts.append(cls._build_alert(
                 "temperature", "critical",
-                f"Critical: Temperature {temperature}°C is dangerously high!",
+                f"Temperature {temperature}°C – dangerously high fever! Immediate cooling needed.",
                 temperature, temp_t["crit_max"], reading_id, patient_id))
         elif temperature < temp_t["crit_min"]:
             alerts.append(cls._build_alert(
                 "temperature", "critical",
-                f"Critical: Temperature {temperature}°C is dangerously low!",
+                f"Temperature {temperature}°C – dangerously low! Warming required.",
                 temperature, temp_t["crit_min"], reading_id, patient_id))
         elif temperature > temp_t["warn_max"]:
             alerts.append(cls._build_alert(
-                "temperature", "warning",
-                f"Warning: Temperature {temperature}°C is elevated!",
+                "temperature", "high",
+                f"Temperature {temperature}°C – elevated. Watch for fever.",
                 temperature, temp_t["warn_max"], reading_id, patient_id))
         elif temperature < temp_t["warn_min"]:
             alerts.append(cls._build_alert(
-                "temperature", "warning",
-                f"Warning: Temperature {temperature}°C is below normal!",
+                "temperature", "high",
+                f"Temperature {temperature}°C – below normal. Monitor for hypothermia.",
                 temperature, temp_t["warn_min"], reading_id, patient_id))
 
         if fall_detected:
             alerts.append(cls._build_alert(
                 "fall", "emergency",
-                "Emergency: Fall detected! Immediate assistance required!",
+                "Fall detected! Immediate assistance required.",
                 1, 0, reading_id, patient_id))
+
+        if risk_level and risk_score is not None:
+            if risk_level == "Critical":
+                alerts.append(cls._build_alert(
+                    "ml_risk", "critical",
+                    "Critical risk detected by AI analysis – immediate intervention required!",
+                    risk_score, 80.0, reading_id, patient_id))
+            elif risk_level == "High":
+                alerts.append(cls._build_alert(
+                    "ml_risk", "high",
+                    "High risk detected by AI analysis – medical assessment recommended.",
+                    risk_score, 50.0, reading_id, patient_id))
+            elif risk_level == "Medium":
+                alerts.append(cls._build_alert(
+                    "ml_risk", "medium",
+                    "Moderate risk detected by AI analysis – monitor patient closely.",
+                    risk_score, 25.0, reading_id, patient_id))
+
+        # Auto-resolve: mark previous unread alerts as read when condition normalizes
+        fired_types = {a.alert_type for a in alerts}
+        SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3, "emergency": 4}
+        filter_kwargs = {"patient_id": patient_id} if patient_id else {"patient_id": None}
+        prev_unread = AlertHistory.query.filter_by(
+            is_read=False, **filter_kwargs
+        ).all()
+        for prev in prev_unread:
+            should_resolve = False
+            if prev.alert_type == "ml_risk":
+                if risk_level == "Low":
+                    should_resolve = True
+                elif risk_level in ("Medium", "High", "Critical"):
+                    current_sev = SEVERITY_ORDER.get(risk_level.lower(), 0)
+                    prev_sev = SEVERITY_ORDER.get(prev.severity.lower(), 0)
+                    if current_sev < prev_sev:
+                        should_resolve = True
+            elif prev.alert_type == "fall":
+                if not fall_detected:
+                    should_resolve = True
+            elif prev.alert_type in ("heart_rate", "spo2", "temperature"):
+                if prev.alert_type not in fired_types:
+                    should_resolve = True
+            if should_resolve:
+                prev.is_read = True
 
         for alert in alerts:
             db.session.add(alert)

@@ -61,6 +61,8 @@ class Patient(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     age = db.Column(db.Integer, nullable=True)
     gender = db.Column(db.String(20), nullable=True)
+    blood_group = db.Column(db.String(10), nullable=True)
+    emergency_contact = db.Column(db.String(200), nullable=True)
     doctor_id = db.Column(db.Integer, db.ForeignKey("doctors.id"), nullable=True)
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -84,7 +86,10 @@ class Patient(db.Model):
             "user_id": self.user_id,
             "age": self.age,
             "gender": self.gender,
+            "blood_group": self.blood_group,
+            "emergency_contact": self.emergency_contact,
             "doctor_id": self.doctor_id,
+            "doctor_name": self.doctor.name if self.doctor else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -131,10 +136,17 @@ class HealthReading(db.Model):
     alerts = db.relationship("AlertHistory", backref="health_reading", lazy="dynamic")
 
     def to_dict(self):
+        def _safe_iso(dt):
+            if dt is None:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+
         return {
             "id": self.id,
             "patient_id": self.patient_id,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": _safe_iso(self.timestamp),
             "heart_rate": self.heart_rate,
             "spo2": self.spo2,
             "temperature": self.temperature,
@@ -142,7 +154,7 @@ class HealthReading(db.Model):
             "acceleration_x": self.acceleration_x,
             "acceleration_y": self.acceleration_y,
             "acceleration_z": self.acceleration_z,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": _safe_iso(self.created_at),
         }
 
 
@@ -176,11 +188,18 @@ class PredictionHistory(db.Model):
         except Exception:
             exp_data = self.explanation
 
+        def _safe_iso(dt):
+            if dt is None:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+
         return {
             "id": self.id,
             "health_reading_id": self.health_reading_id,
             "patient_id": self.patient_id,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": _safe_iso(self.timestamp),
             "heart_rate": self.heart_rate,
             "spo2": self.spo2,
             "temperature": self.temperature,
@@ -190,7 +209,7 @@ class PredictionHistory(db.Model):
             "confidence_score": self.confidence_score,
             "explanation": exp_data,
             "recommendation": self.recommendation,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": _safe_iso(self.created_at),
         }
 
 
@@ -214,18 +233,25 @@ class AlertHistory(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
+        def _safe_iso(dt):
+            if dt is None:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+
         return {
             "id": self.id,
             "health_reading_id": self.health_reading_id,
             "patient_id": self.patient_id,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": _safe_iso(self.timestamp),
             "alert_type": self.alert_type,
             "severity": self.severity,
             "message": self.message,
             "value": self.value,
             "threshold": self.threshold,
             "is_read": self.is_read,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": _safe_iso(self.created_at),
         }
 
 

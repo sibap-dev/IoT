@@ -1,1636 +1,603 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>IoT Healthcare Platform</title>
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-
-/* CSS Custom Properties */
-:root{
-  --bg:#0d1117;--bg2:#161b22;--card:rgba(22,27,34,0.9);
-  --border:rgba(48,54,61,0.8);--text:#e6edf3;--muted:#8b949e;
-  --accent:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149;
-  --topbar-h:56px;
-}
-
-/* ── Fluid Typography using clamp() ── */
-html { font-size: clamp(13px, 0.9rem + 0.4vw, 16px); }
-body {
-  font-family:'Inter',sans-serif;
-  background:var(--bg);
-  color:var(--text);
-  overflow-x:hidden;
-  overflow-y:auto;
-  min-height:100vh;
-}
-
-/* ── Sidebar: ALWAYS off-screen, slides in when .open ── */
-#sidebar {
-  position: fixed;
-  top: 0; left: -280px;
-  width: 260px;
-  height: 100vh;
-  background: var(--bg2);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: var(--topbar-h) 0 0;
-  z-index: 9000;
-  transition: left 0.28s cubic-bezier(0.4,0,0.2,1);
-  box-shadow: 4px 0 32px rgba(0,0,0,0.6);
-  overflow-y: auto;
-}
-#sidebar.open { left: 0; }
-
-/* ── Backdrop overlay ── */
-#sidebar-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 8999;
-  backdrop-filter: blur(3px);
-}
-#sidebar-overlay.show { display: block; }
-
-/* ── Sticky top header bar (always visible) ── */
-#topbar {
-  position: fixed;
-  top:0; left:0; right:0;
-  height: var(--topbar-h);
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 14px;
-  z-index: 9001;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-}
-#hamburger-btn {
-  background: none;
-  border: none;
-  color: var(--text);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 6px;
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-#hamburger-btn:hover { background: rgba(255,255,255,0.08); }
-#topbar-logo {
-  font-size: clamp(0.95rem, 3vw, 1.15rem);
-  font-weight: 700;
-  color: var(--accent);
-  letter-spacing: 0.04em;
-  flex: 1;
-}
-
-/* Sidebar inner styles */
-.logo{padding:0 20px 18px;font-size:clamp(0.95rem,3vw,1.15rem);font-weight:700;color:var(--accent);border-bottom:1px solid var(--border);margin-bottom:0}
-.logo span{font-size:1.3rem;margin-right:6px}
-.nav-btn{width:100%;background:none;border:none;color:var(--muted);text-align:left;padding:12px 20px;font-family:'Inter',sans-serif;font-size:clamp(0.8rem,2vw,0.9rem);cursor:pointer;border-radius:0;transition:.2s;display:flex;align-items:center;gap:10px}
-.nav-btn:hover{background:rgba(88,166,255,.1);color:var(--text)}
-.nav-btn.active{background:rgba(88,166,255,.15);color:var(--accent);font-weight:600;border-right:3px solid var(--accent)}
-.sidebar-footer{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border)}
-.sidebar-footer button{width:100%;padding:8px;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);color:var(--red);border-radius:6px;cursor:pointer;font-size:clamp(0.72rem,2vw,0.8rem);font-family:'Inter',sans-serif}
-.sidebar-footer button:hover{background:rgba(248,81,73,.2)}
-
-/* ── Main Workspace Layout ── */
-#main {
-  padding: calc(var(--topbar-h) + clamp(12px, 3vw, 24px)) clamp(10px, 2.5vw, 24px) 32px;
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: calc(100vh - var(--topbar-h));
-}
-
-/* ── Page View Toggles ── */
-.page { display: none; }
-.page.active { display: block; animation: fadeIn 0.35s ease-out; }
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Topbars and Subtitles ── */
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: clamp(16px, 4vw, 24px);
-  flex-wrap: wrap;
-}
-h1 {
-  font-size: clamp(1.25rem, 3.5vw, 1.8rem);
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-}
-.subtitle {
-  font-size: clamp(0.78rem, 2vw, 0.88rem);
-  color: var(--muted);
-  margin-top: 4px;
-  line-height: 1.45;
-}
-
-/* ── Buttons (High-DPI Touch-Friendly Targets) ── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: clamp(8px, 1.8vw, 10px) clamp(16px, 3vw, 20px);
-  font-family: 'Inter', sans-serif;
-  font-size: clamp(0.8rem, 1.8vw, 0.88rem);
-  font-weight: 600;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 38px;
-}
-.btn-sm {
-  padding: clamp(4px, 1.2vw, 6px) clamp(10px, 2vw, 14px);
-  font-size: clamp(0.72rem, 1.5vw, 0.78rem);
-  min-height: 28px;
-}
-.btn-primary {
-  background: var(--accent);
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.25);
-}
-.btn-primary:hover {
-  background: #79b8ff;
-  transform: translateY(-1px);
-}
-.btn-danger {
-  background: rgba(248, 81, 73, 0.15);
-  border: 1px solid rgba(248, 81, 73, 0.4);
-  color: var(--red);
-}
-.btn-danger:hover {
-  background: rgba(248, 81, 73, 0.25);
-  transform: translateY(-1px);
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-/* ── Vitals Grid and Cards ── */
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: clamp(10px, 2vw, 16px);
-  margin-bottom: clamp(16px, 4vw, 24px);
-}
-@media (max-width: 480px) {
-  .cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: clamp(12px, 3vw, 18px);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-  border-color: var(--card-accent, var(--border));
-}
-.card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--card-accent, var(--accent));
-}
-.card-label {
-  font-size: clamp(0.72rem, 1.8vw, 0.82rem);
-  color: var(--muted);
-  font-weight: 500;
-  margin-bottom: clamp(6px, 1.5vw, 10px);
-}
-.card-value {
-  font-size: clamp(1.6rem, 5.5vw, 2.4rem);
-  font-weight: 700;
-  line-height: 1.1;
-  color: var(--text);
-  margin-bottom: 2px;
-}
-.card-unit {
-  font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  color: var(--muted);
-  margin-bottom: clamp(8px, 2vw, 12px);
-  display: inline-block;
-}
-.card-badge {
-  align-self: flex-start;
-  font-size: clamp(0.65rem, 1.5vw, 0.72rem);
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-.badge-ok { background: rgba(63, 185, 80, 0.15); color: var(--green); }
-.badge-danger { background: rgba(248, 81, 73, 0.15); color: var(--red); }
-.badge-warning { background: rgba(210, 153, 34, 0.15); color: var(--yellow); }
-
-/* ── Eye-Catching Glassmorphic Alert System & Pulsing Vitals ── */
-#alert-banner {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.alert-card {
-  position: relative;
-  background: linear-gradient(135deg, rgba(248, 81, 73, 0.15) 0%, rgba(248, 81, 73, 0.05) 100%);
-  border: 1px solid rgba(248, 81, 73, 0.4);
-  border-left: 5px solid var(--red);
-  color: var(--text);
-  padding: 14px 18px;
-  border-radius: 8px;
-  font-size: clamp(0.8rem, 2vw, 0.9rem);
-  line-height: 1.5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  box-shadow: 0 4px 16px rgba(248, 81, 73, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-  animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-.alert-card.alert-warning {
-  background: linear-gradient(135deg, rgba(210, 153, 34, 0.15) 0%, rgba(210, 153, 34, 0.05) 100%);
-  border: 1px solid rgba(210, 153, 34, 0.4);
-  border-left: 5px solid var(--yellow);
-  box-shadow: 0 4px 16px rgba(210, 153, 34, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-.alert-card.alert-info {
-  background: linear-gradient(135deg, rgba(88, 166, 255, 0.15) 0%, rgba(88, 166, 255, 0.05) 100%);
-  border: 1px solid rgba(88, 166, 255, 0.4);
-  border-left: 5px solid var(--accent);
-  box-shadow: 0 4px 16px rgba(88, 166, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.alert-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-.alert-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  font-size: 1.1rem;
-  animation: pulseIcon 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
-}
-.alert-card.alert-danger .alert-icon-wrapper {
-  background: rgba(248, 81, 73, 0.2);
-  color: var(--red);
-  box-shadow: 0 0 10px rgba(248, 81, 73, 0.4);
-}
-.alert-card.alert-warning .alert-icon-wrapper {
-  background: rgba(210, 153, 34, 0.2);
-  color: var(--yellow);
-  box-shadow: 0 0 10px rgba(210, 153, 34, 0.4);
-}
-.alert-card.alert-info .alert-icon-wrapper {
-  background: rgba(88, 166, 255, 0.2);
-  color: var(--accent);
-  box-shadow: 0 0 10px rgba(88, 166, 255, 0.4);
-}
-@keyframes pulseIcon {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.85; }
-}
-.alert-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.alert-title {
-  font-weight: 700;
-  font-size: clamp(0.78rem, 1.8vw, 0.88rem);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.alert-card.alert-danger .alert-title { color: var(--red); }
-.alert-card.alert-warning .alert-title { color: var(--yellow); }
-.alert-card.alert-info .alert-title { color: var(--accent); }
-
-.alert-message {
-  color: var(--text);
-  font-size: clamp(0.76rem, 1.7vw, 0.84rem);
-  font-weight: 500;
-}
-.alert-time {
-  font-size: clamp(0.65rem, 1.5vw, 0.72rem);
-  color: var(--muted);
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: normal;
-}
-.alert-action-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--muted);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
-  font-size: 0.85rem;
-  font-weight: bold;
-}
-.alert-action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: scale(1.08);
-}
-
-/* ── Glowing Ambient Pulsing abnormal Vitals Cards ── */
-.card.card-danger {
-  border-color: rgba(248, 81, 73, 0.7) !important;
-  box-shadow: 0 0 18px rgba(248, 81, 73, 0.3) !important;
-  animation: glowDanger 2.5s infinite ease-in-out;
-  --card-accent: #f85149 !important;
-}
-.card.card-warning {
-  border-color: rgba(210, 153, 34, 0.7) !important;
-  box-shadow: 0 0 18px rgba(210, 153, 34, 0.3) !important;
-  animation: glowWarning 2.5s infinite ease-in-out;
-  --card-accent: #d29922 !important;
-}
-@keyframes glowDanger {
-  0%, 100% { border-color: rgba(248, 81, 73, 0.4); box-shadow: 0 0 12px rgba(248, 81, 73, 0.15); }
-  50% { border-color: rgba(248, 81, 73, 0.9); box-shadow: 0 0 24px rgba(248, 81, 73, 0.45); }
-}
-@keyframes glowWarning {
-  0%, 100% { border-color: rgba(210, 153, 34, 0.4); box-shadow: 0 0 12px rgba(210, 153, 34, 0.15); }
-  50% { border-color: rgba(210, 153, 34, 0.9); box-shadow: 0 0 24px rgba(210, 153, 34, 0.45); }
-}
-
-/* ── Visual Panels & Containers ── */
-.panel, .chart-card, .table-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: clamp(14px, 3vw, 20px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-.chart-title {
-  font-size: clamp(0.82rem, 2vw, 0.95rem);
-  font-weight: 600;
-  color: var(--accent);
-  margin-bottom: clamp(10px, 2vw, 14px);
-  letter-spacing: 0.02em;
-}
-
-/* ── Grids & Dynamic Columns ── */
-.charts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: clamp(12px, 2vw, 16px);
-  margin-bottom: 16px;
-}
-.two-col {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: clamp(12px, 2vw, 16px);
-}
-@media (max-width: 480px) {
-  .two-col {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ── Responsive Scrollable Tables ── */
-.table-card {
-  display: flex;
-  flex-direction: column;
-}
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  text-align: left;
-}
-th {
-  color: var(--muted);
-  font-weight: 600;
-  border-bottom: 1px solid var(--border);
-  padding: clamp(8px, 1.5vw, 12px) clamp(6px, 1.2vw, 10px);
-}
-td {
-  padding: clamp(8px, 1.5vw, 12px) clamp(6px, 1.2vw, 10px);
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  line-height: 1.4;
-}
-tr:last-child td { border-bottom: none; }
-tr.patient-row:hover {
-  background: rgba(255,255,255,0.03);
-}
-
-/* ── Form Controls & Layouts ── */
-.form-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-label {
-  font-size: clamp(0.75rem, 1.8vw, 0.82rem);
-  color: var(--muted);
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-select, input[type=range] {
-  padding: 8px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 6px;
-  font-size: clamp(0.78rem, 1.8vw, 0.85rem);
-  outline: none;
-  font-family: 'Inter', sans-serif;
-  height: 38px;
-}
-select {
-  min-width: 120px;
-}
-input[type=range] {
-  cursor: pointer;
-  height: auto;
-  accent-color: var(--accent);
-}
-
-/* ── Analytics & Metrics Grid ── */
-.metrics-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-}
-.metric-box {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: clamp(10px, 2vw, 14px);
-  text-align: center;
-}
-.metric-box .val {
-  font-size: clamp(1.2rem, 3.5vw, 1.5rem);
-  font-weight: 700;
-  color: var(--accent);
-  margin-bottom: 4px;
-  line-height: 1.1;
-}
-.metric-box .lbl {
-  font-size: clamp(0.65rem, 1.5vw, 0.72rem);
-  color: var(--muted);
-  font-weight: 500;
-}
-
-/* ── SHAP Proportional Progress Bars ── */
-.shap-container {
-  margin-top: 16px;
-}
-.shap-bar-row {
-  margin-bottom: clamp(10px, 2.2vw, 14px);
-}
-.shap-bar-lbl {
-  display: flex;
-  justify-content: space-between;
-  font-size: clamp(0.72rem, 1.8vw, 0.82rem);
-  color: var(--text);
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-.shap-bar-outer {
-  background: rgba(255,255,255,0.05);
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.shap-bar-inner {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ── Dynamic Auth Modal Layout ── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(4px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  padding: 16px;
-  transition: opacity 0.25s ease;
-}
-.modal-overlay.show {
-  display: flex;
-}
-.modal-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: clamp(20px, 5vw, 32px);
-  width: 100%;
-  max-width: 400px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-  animation: modalSlide 0.25s ease-out;
-}
-@keyframes modalSlide {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.modal-title {
-  font-size: clamp(1.15rem, 4vw, 1.35rem);
-  font-weight: 700;
-  color: var(--accent);
-  margin-bottom: clamp(16px, 4vw, 24px);
-  text-align: center;
-}
-.modal-card input, .modal-card select {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: clamp(0.8rem, 2vw, 0.88rem);
-  margin-bottom: clamp(10px, 2vw, 14px);
-  outline: none;
-  font-family: 'Inter', sans-serif;
-  height: 42px;
-}
-.modal-card input:focus, .modal-card select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(88,166,255,0.15);
-}
-
-/* ── Sidebar Auth Info Panel ── */
-.session-panel {
-  padding: 12px clamp(16px, 3vw, 20px);
-  border-bottom: 1px solid var(--border);
-  background: rgba(88,166,255,0.02);
-  margin-bottom: 8px;
-}
-.session-user {
-  font-size: clamp(0.72rem, 1.8vw, 0.82rem);
-  color: var(--text);
-  font-weight: 600;
-  margin-bottom: 4px;
-  word-break: break-all;
-}
-.session-role {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: clamp(0.6rem, 1.5vw, 0.68rem);
-  font-weight: 700;
-  background: rgba(88,166,255,0.15);
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.status-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
-}
-.dot-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
-.dot-yellow { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
-.dot-red { background: var(--red); box-shadow: 0 0 8px var(--red); }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IoT Healthcare Platform</title>
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d1117'/%3E%3Cpath d='M16 6v20M6 16h20' stroke='%2358a6ff' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
 
-
-<!-- ── Always-visible top header bar with hamburger ── -->
-<div id="topbar">
-  <button id="hamburger-btn" onclick="toggleSidebar()" aria-label="Toggle menu">&#9776;</button>
-  <div id="topbar-logo">🏥 Medicare</div>
-  <div style="width:32px"></div>
-</div>
-
-<!-- ── Backdrop overlay (click to close sidebar) ── -->
-<div id="sidebar-overlay" onclick="closeSidebar()"></div>
-
-<!-- ── Drawer sidebar (always off-screen by default) ── -->
-<nav id="sidebar">
-  
-  <!-- Dynamic Auth Container -->
-  <div id="session-container" class="session-panel">
-    <div class="session-user">Guest Session</div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-primary btn-sm" style="flex:1;padding:4px 8px;font-size:0.72rem;font-weight:600" onclick="openAuthModal('login')">🔑 Log In</button>
-      <button class="btn btn-danger btn-sm" style="flex:1;padding:4px 8px;font-size:0.72rem;font-weight:600;background:rgba(88,166,255,0.1);border-color:rgba(88,166,255,0.2);color:var(--accent)" onclick="openAuthModal('signup')">📝 Register</button>
-    </div>
+  <!-- ── Boot splash animation ── -->
+  <div id="boot-splash">
+    <iframe id="boot-iframe" src="{{ url_for('static', filename='boot.html') }}" frameborder="0"></iframe>
   </div>
 
-  <button class="nav-btn active" id="btn-nav-dashboard" onclick="nav('dashboard')">📊 Dashboard</button>
-  <button class="nav-btn" id="btn-nav-analytics" onclick="nav('analytics')">📈 Analytics</button>
-  <button class="nav-btn" id="btn-nav-simulation" onclick="nav('simulation')">🧪 Simulation</button>
-  <button class="nav-btn" id="btn-nav-training" onclick="nav('training')">🤖 Model Training</button>
-  <button class="nav-btn" id="btn-nav-doctor" style="display:none" onclick="nav('doctor')">🩺 Doctor Panel</button>
-  <div class="sidebar-footer">
-    <button onclick="clearAlerts()">🗑️ Clear Alert History</button>
+  <!-- ── Welcome greeting bar (animated) ── -->
+  <div id="welcome-bar">
+    <span id="welcome-text">🌐 Welcome to Medicare IoT Platform</span>
   </div>
-</nav>
 
-<main id="main">
+  <!-- ── Always-visible top header bar with hamburger ── -->
+  <div id="topbar">
+    <button id="hamburger-btn" onclick="toggleSidebar()" aria-label="Toggle menu">&#9776;</button>
+    <div id="topbar-logo">🏥 Medicare</div>
+    <div style="width:32px"></div>
+  </div>
 
-<!-- DASHBOARD -->
-<div id="page-dashboard" class="page active">
-  <div class="topbar">
-    <div><h1>Real-Time Patient Monitoring</h1><div class="subtitle" id="last-updated">Loading...</div></div>
-    <button class="btn btn-primary btn-sm" onclick="loadDashboard()">🔄 Refresh</button>
-  </div>
-  <div id="alert-banner"></div>
-  <div class="cards">
-    <div class="card" id="card-bpm" style="--card-accent:#f85149"><div class="card-label">❤️ Heart Rate</div><div class="card-value" id="v-bpm">--</div><div class="card-unit">bpm</div><div id="b-bpm" class="card-badge badge-ok">Normal</div></div>
-    <div class="card" id="card-spo2" style="--card-accent:#58a6ff"><div class="card-label">🫁 Blood Oxygen</div><div class="card-value" id="v-spo2">--</div><div class="card-unit">%</div><div id="b-spo2" class="card-badge badge-ok">Normal</div></div>
-    <div class="card" id="card-temp" style="--card-accent:#f39c12"><div class="card-label">🌡️ Body Temp</div><div class="card-value" id="v-temp">--</div><div class="card-unit">°C</div><div id="b-temp" class="card-badge badge-ok">Normal</div></div>
-    <div class="card" id="card-risk" style="--card-accent:#3fb950"><div class="card-label">⚠️ Risk Score</div><div class="card-value" id="v-risk">--</div><div class="card-unit">/ 100</div><div id="b-risk" class="card-badge badge-ok">Low</div></div>
-  </div>
-  <div class="charts">
-    <div class="chart-card"><div class="chart-title">Heart Rate Trend</div><div id="ch-bpm" style="height:180px"></div></div>
-    <div class="chart-card"><div class="chart-title">SpO2 Trend</div><div id="ch-spo2" style="height:180px"></div></div>
-    <div class="chart-card"><div class="chart-title">Body Temp Trend</div><div id="ch-temp" style="height:180px"></div></div>
-  </div>
-  <div class="two-col">
-    <div class="chart-card"><div class="chart-title">Risk Score Gauge</div><div id="ch-gauge" style="height:220px"></div></div>
-    <div class="table-card">
-      <div class="chart-title">Latest Readings</div>
-      <div class="table-responsive">
-        <table><thead><tr><th>BPM</th><th>SpO2</th><th>Temp</th><th>Risk</th><th>Activity</th></tr></thead>
-        <tbody id="tbl-latest"></tbody></table>
+  <!-- ── Backdrop overlay (click to close sidebar) ── -->
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- ── Drawer sidebar (always off-screen by default) ── -->
+  <nav id="sidebar">
+
+    <!-- Dynamic Auth Container -->
+    <div id="session-container" class="session-panel">
+      <div class="session-user">Guest Session</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1;padding:4px 8px;font-size:0.72rem;font-weight:600"
+          onclick="openAuthModal('login')">🔑 Log In</button>
+        <button class="btn btn-danger btn-sm"
+          style="flex:1;padding:4px 8px;font-size:0.72rem;font-weight:600;background:rgba(88,166,255,0.1);border-color:rgba(88,166,255,0.2);color:var(--accent)"
+          onclick="openAuthModal('signup')">📝 Register</button>
       </div>
     </div>
-  </div>
-  
-  <!-- Dynamic Clinical Advisor -->
-  <div class="panel" style="margin-top: 20px; border-color: rgba(88,166,255,0.2); background: rgba(88,166,255,0.02)">
-    <h3 style="color:var(--accent);margin-bottom:8px">💡 Clinical Decision Support Recommendations</h3>
-    <div id="v-recommendation" style="font-size:0.88rem; line-height: 1.5">Waiting for physiological vitals telemetry stream...</div>
-  </div>
-</div>
 
-<!-- ANALYTICS -->
-<div id="page-analytics" class="page">
-  <h1>Analytics &amp; Model Insights</h1>
-  <div class="subtitle">Model performance and prediction analysis</div>
-  <div id="analytics-no-model" class="panel" style="text-align:center;color:var(--muted)">
-    ⚠️ No trained model found. Go to <strong>Model Training</strong> to train one first.
-  </div>
-  <div id="analytics-content" style="display:none">
-    <div class="metrics-row" id="analytics-metrics"></div>
-    <div class="two-col" style="margin-top:16px">
-      <div class="chart-card"><div class="chart-title">Feature Importance</div><div id="ch-feat" style="height:280px"></div></div>
-      <div class="chart-card"><div class="chart-title">Prediction Distribution</div><div id="ch-pred" style="height:280px"></div></div>
+    <button class="nav-btn active" id="btn-nav-dashboard" onclick="nav('dashboard')">📊 Dashboard</button>
+    <button class="nav-btn" id="btn-nav-profile" style="display:none" onclick="nav('profile')">👤 My Profile</button>
+    <button class="nav-btn" id="btn-nav-health-history" style="display:none" onclick="nav('health-history')">📋 Health
+      History</button>
+    <button class="nav-btn" id="btn-nav-doctor" style="display:none" onclick="nav('doctor')">🩺 Doctor Panel</button>
+    <div class="sidebar-footer">
+      <button onclick="clearAlerts()">🗑️ Clear Alert History</button>
     </div>
-  </div>
-</div>
+  </nav>
 
-<!-- SIMULATION -->
-<div id="page-simulation" class="page">
-  <h1>Simulation Studio</h1>
-  <div class="subtitle">Generate synthetic patient sensor data</div>
-  <div class="panel">
-    <h3>Configuration</h3>
-    <div class="form-row">
-      <label>Health Condition</label>
-      <select id="sim-condition"></select>
-      <label>Samples: <span id="sim-n-label">50</span></label>
-      <input type="range" id="sim-n" min="10" max="500" value="50" step="10" oninput="document.getElementById('sim-n-label').textContent=this.value">
-      <label><input type="checkbox" id="sim-trans"> Transitions</label>
-      <button class="btn btn-primary" id="sim-btn" onclick="runSim()">▶️ Generate</button>
-    </div>
-    <div id="sim-desc" style="color:var(--muted);font-size:.85rem"></div>
-  </div>
-  <div id="sim-results" style="display:none">
-    <div class="two-col">
-      <div class="chart-card"><div class="chart-title">BPM</div><div id="sim-ch-bpm" style="height:180px"></div></div>
-      <div class="chart-card"><div class="chart-title">SpO2</div><div id="sim-ch-spo2" style="height:180px"></div></div>
-    </div>
-    <div class="table-card" style="margin-top:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <span class="chart-title">Simulated Data</span>
-        <button class="btn btn-primary btn-sm" id="dl-btn">📥 Download CSV</button>
-      </div>
-      <div class="table-responsive">
-        <table><thead><tr><th>#</th><th>BPM</th><th>SPO2</th><th>Body Temp</th><th>Ambient Temp</th><th>Humidity</th></tr></thead>
-        <tbody id="sim-tbl"></tbody></table>
-      </div>
-    </div>
-  </div>
-</div>
+  <main id="main">
 
-<!-- TRAINING -->
-<div id="page-training" class="page">
-  <h1>Model Training</h1>
-  <div class="subtitle">Train a Random Forest classifier on synthetic data</div>
-  <div class="panel">
-    <h3>Settings</h3>
-    <div class="form-row">
-      <label>Samples/condition: <span id="spc-label">100</span></label>
-      <input type="range" id="train-spc" min="20" max="500" value="100" step="20" oninput="document.getElementById('spc-label').textContent=this.value">
-      <label><input type="checkbox" id="train-gs"> Grid Search (slow)</label>
-      <button class="btn btn-primary" id="train-btn" onclick="runTrain()">🤖 Train Model</button>
-    </div>
-  </div>
-  <div id="train-log" class="panel" style="display:none">
-    <h3>Results</h3>
-    <div id="train-metrics" class="metrics-row"></div>
-  </div>
-  <div class="panel">
-    <h3>Model Status</h3>
-    <div id="model-status">Checking...</div>
-  </div>
-</div>
-
-<!-- DOCTOR WORKSPACE -->
-<div id="page-doctor" class="page">
-  <div class="topbar">
-    <div><h1>Doctor Diagnostic Workspace</h1><div class="subtitle">Clinical intelligence, anomaly logs, and SHAP Explainable AI diagnostics</div></div>
-  </div>
-  <div class="two-col">
-    <div class="table-card patient-list-card">
-      <div class="chart-title">Active Monitoring Streams</div>
-      <div class="table-responsive">
-        <table><thead><tr><th>Device / Patient</th><th>HR (bpm)</th><th>SpO2 (%)</th><th>Temp (°C)</th><th>Status</th></tr></thead>
-        <tbody id="doc-patient-tbody"></tbody></table>
-      </div>
-    </div>
-    <div>
-      <div id="doc-diagnostic-card" class="panel" style="display:none">
-        <h3 id="doc-active-patient-name" style="margin-bottom: 12px; color: var(--accent)">Patient Diagnostic Overview</h3>
-        
-        <div class="metrics-row" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 12px">
-          <div class="metric-box"><div class="val" id="doc-v-hr">--</div><div class="lbl">Heart Rate</div></div>
-          <div class="metric-box"><div class="val" id="doc-v-spo2">--</div><div class="lbl">SpO2 Level</div></div>
-          <div class="metric-box"><div class="val" id="doc-v-temp">--</div><div class="lbl">Body Temp</div></div>
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="topbar">
+        <div>
+          <h1>Real-Time Patient Monitoring</h1>
+          <div class="subtitle" id="last-updated">Loading...</div>
         </div>
-        <div class="metrics-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 16px">
-          <div class="metric-box"><div class="val" id="doc-v-risk">--</div><div class="lbl">Risk Score</div></div>
-          <div class="metric-box"><div class="val" id="doc-v-anomaly">--</div><div class="lbl">Anomaly Status</div></div>
+        <span id="hw-status"
+          style="font-size:0.8rem;font-weight:600;padding:4px 10px;border-radius:20px;background:rgba(139,148,158,0.1);margin-left:8px">⏳
+          Connecting...</span>
+        <span id="stability-status"
+          style="font-size:0.75rem;font-weight:600;padding:2px 10px;border-radius:20px;margin-left:6px;display:none">--</span>
+        <span id="fall-badge"
+          style="display:none;font-size:0.75rem;font-weight:700;padding:2px 10px;border-radius:20px;margin-left:6px;background:rgba(248,81,73,0.2);color:var(--red)">💥
+          FALL DETECTED</span>
+        <button class="btn btn-primary btn-sm" onclick="loadDashboard()">🔄 Refresh</button>
+        <button class="btn btn-primary btn-sm" id="btn-claim"
+          style="display:none;background:rgba(88,166,255,0.15);border-color:rgba(88,166,255,0.3);color:var(--accent)"
+          onclick="claimReadings()">🔗 Link Device</button>
+      </div>
+      <div id="alert-banner"></div>
+      <div class="cards">
+        <div class="card" id="card-bpm" style="--card-accent:#f85149">
+          <div class="card-label">❤️ Heart Rate</div>
+          <div class="card-value" id="v-bpm">--</div>
+          <div class="card-unit">bpm</div>
+          <div id="b-bpm" class="card-badge badge-ok">Normal</div>
         </div>
-
-        <div class="shap-container">
-          <div class="chart-title" style="margin-bottom:14px">🧠 SHAP Explainable AI (Proportional Contribution)</div>
-          
-          <div class="shap-bar-row">
-            <div class="shap-bar-lbl"><span>Heart Rate (MAX30102)</span><span id="shap-pct-hr">0%</span></div>
-            <div class="shap-bar-outer"><div id="shap-bar-hr" class="shap-bar-inner" style="width:0%; background:var(--red)"></div></div>
-          </div>
-          
-          <div class="shap-bar-row" style="margin-top:10px">
-            <div class="shap-bar-lbl"><span>Blood Oxygen (MAX30102)</span><span id="shap-pct-spo2">0%</span></div>
-            <div class="shap-bar-outer"><div id="shap-bar-spo2" class="shap-bar-inner" style="width:0%; background:var(--accent)"></div></div>
-          </div>
-          
-          <div class="shap-bar-row" style="margin-top:10px">
-            <div class="shap-bar-lbl"><span>Body Temp (DS18B20)</span><span id="shap-pct-temp">0%</span></div>
-            <div class="shap-bar-outer"><div id="shap-bar-temp" class="shap-bar-inner" style="width:0%; background:var(--yellow)"></div></div>
-          </div>
-          
-          <div class="shap-bar-row" style="margin-top:10px">
-            <div class="shap-bar-lbl"><span>Fall Vector (MPU6050)</span><span id="shap-pct-fall">0%</span></div>
-            <div class="shap-bar-outer"><div id="shap-bar-fall" class="shap-bar-inner" style="width:0%; background:#bd2130"></div></div>
-          </div>
-          
-          <div style="font-size: 0.72rem; color: var(--muted); margin-top: 12px; line-height: 1.4">
-            * SHAP (SHapley Additive exPlanations) values outline the exact proportional factor influence of each sensory channel on the AI's clinical risk classification.
-          </div>
+        <div class="card" id="card-spo2" style="--card-accent:#58a6ff">
+          <div class="card-label">🫁 Blood Oxygen</div>
+          <div class="card-value" id="v-spo2">--</div>
+          <div class="card-unit">%</div>
+          <div id="b-spo2" class="card-badge badge-ok">Normal</div>
         </div>
-
-        <div class="panel" style="margin-top: 16px; border-color: rgba(88,166,255,0.2); background: rgba(88,166,255,0.02); padding: 16px">
-          <div class="chart-title" style="color:var(--accent);margin-bottom:8px">💡 Clinical Decision Advice</div>
-          <div id="doc-active-recommendation" style="font-size:0.83rem; line-height: 1.5; color: var(--text)">No advice loaded.</div>
+        <div class="card" id="card-temp" style="--card-accent:#f39c12">
+          <div class="card-label">🌡️ Body Temp</div>
+          <div class="card-value" id="v-temp">--</div>
+          <div class="card-unit">°C</div>
+          <div id="b-temp" class="card-badge badge-ok">Normal</div>
+        </div>
+        <div class="card" id="card-risk" style="--card-accent:#3fb950">
+          <div class="card-label">⚠️ Risk Score</div>
+          <div class="card-value" id="v-risk">--</div>
+          <div class="card-unit">/ 100</div>
+          <div id="b-risk" class="card-badge badge-ok">Low</div>
         </div>
       </div>
-      <div id="doc-diagnostic-no-selection" class="panel" style="text-align:center;color:var(--muted)">
-        👈 Select an active patient stream from the list to load clinical diagnostics and AI explanation attributions.
-      </div>
-    </div>
-  </div>
-</div>
-
-</main>
-
-<!-- Authentication Modals -->
-<div id="auth-modal" class="modal-overlay" onclick="closeAuthModal(event)">
-  <div class="modal-card" onclick="event.stopPropagation()">
-    <div id="auth-title" class="modal-title">🔑 Log In</div>
-    
-    <div id="auth-fields-signup" style="display:none">
-      <input type="text" id="auth-name" placeholder="Full Name">
-      <select id="auth-role">
-        <option value="PATIENT">Patient Account</option>
-        <option value="DOCTOR">Doctor Portal</option>
-      </select>
-      <input type="text" id="auth-age" placeholder="Age (e.g. 45)">
-      <input type="text" id="auth-gender" placeholder="Gender (e.g. Male)">
-    </div>
-    
-    <input type="email" id="auth-email" placeholder="Email Address">
-    <input type="password" id="auth-password" placeholder="Password">
-    
-    <div id="auth-error-msg" style="color:var(--red); font-size:0.8rem; margin-bottom:12px; display:none">Error message</div>
-    
-    <button class="btn btn-primary" style="width:100%" id="auth-submit-btn" onclick="submitAuth()">Submit</button>
-    
-    <div style="text-align:center; margin-top:16px; font-size:0.8rem; color:var(--muted)">
-      <span id="auth-toggle-prompt">Don't have an account?</span>
-      <a href="#" style="color:var(--accent); text-decoration:none; margin-left:4px" id="auth-toggle-link" onclick="toggleAuthMode(event)">Sign Up</a>
-    </div>
-  </div>
-</div>
-
-<script>
-// --- State ---
-let simData = [], currentPage = 'dashboard';
-let currentAuthMode = 'login';
-let sessionUser = null;
-let activeDoctorPatientId = null;
-let allPatientReadings = {};
-
-const PLT = {responsive:true, displayModeBar:false};
-const DARK_BASE = {
-  paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
-  xaxis:{gridcolor:'rgba(48,54,61,0.6)', showgrid:true},
-  yaxis:{gridcolor:'rgba(48,54,61,0.6)', showgrid:true}
-};
-
-function getDARKLayout(extra = {}) {
-  const isMobile = window.innerWidth < 768;
-  return {
-    ...DARK_BASE,
-    font: { color: '#8b949e', size: isMobile ? 8.5 : 10.5 },
-    margin: isMobile 
-      ? { t: 10, r: 8, b: 24, l: 32 } 
-      : { t: 10, r: 15, b: 30, l: 45 },
-    ...extra
-  };
-}
-
-// --- Authentication Session Loops ---
-async function checkAuthSession() {
-  try {
-    const res = await fetch('/api/auth/session').then(r => r.json());
-    const container = document.getElementById('session-container');
-    const doctorBtn = document.getElementById('btn-nav-doctor');
-
-    if (res.authenticated && res.user) {
-      sessionUser = res;
-      let displayName = res.user.email;
-      if (res.user.role === 'PATIENT' && res.patient) {
-        displayName = res.patient.name || res.patient.patient_id;
-      } else if (res.user.role === 'DOCTOR' && res.doctor) {
-        displayName = 'Dr. ' + res.doctor.name;
-      }
-
-      container.innerHTML = `
-        <div class="session-user" title="${res.user.email}">${displayName}</div>
-        <div class="session-role">${res.user.role}</div>
-        <button class="btn btn-danger btn-sm" style="width:100%; padding:4px 8px; font-size:0.75rem; margin-top:8px" onclick="logout()">🚪 Log Out</button>
-      `;
-
-      if (res.user.role === 'DOCTOR') {
-        doctorBtn.style.display = 'block';
-      } else {
-        doctorBtn.style.display = 'none';
-      }
-    } else {
-      sessionUser = null;
-      doctorBtn.style.display = 'none';
-      container.innerHTML = `
-        <div class="session-user">Guest Session</div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-primary btn-sm" style="flex:1;padding:4px 8px;font-size:0.72rem;font-weight:600" onclick="openAuthModal('login')">🔑 Log In</button>
-          <button class="btn btn-danger btn-sm" style="flex:1;padding:4px 8px;font-size:0.72rem;font-weight:600;background:rgba(88,166,255,0.1);border-color:rgba(88,166,255,0.2);color:var(--accent)" onclick="openAuthModal('signup')">📝 Register</button>
+      <div class="charts">
+        <div class="chart-card">
+          <div class="chart-title">Heart Rate Trend</div>
+          <div id="ch-bpm" style="height:180px"></div>
         </div>
-      `;
-    }
-  } catch (e) { console.error('Session sync error:', e); }
-}
-
-function openAuthModal(mode) {
-  currentAuthMode = mode;
-  document.getElementById('auth-modal').style.display = 'flex';
-  document.getElementById('auth-error-msg').style.display = 'none';
-  toggleAuthModeUI(mode);
-}
-
-function closeAuthModal(event) {
-  document.getElementById('auth-modal').style.display = 'none';
-}
-
-function toggleAuthMode(e) {
-  e.preventDefault();
-  currentAuthMode = currentAuthMode === 'login' ? 'signup' : 'login';
-  toggleAuthModeUI(currentAuthMode);
-}
-
-function toggleAuthModeUI(mode) {
-  const isSignup = mode === 'signup';
-  document.getElementById('auth-title').textContent = isSignup ? '📝 Create Account' : '🔑 Log In';
-  document.getElementById('auth-fields-signup').style.display = isSignup ? 'block' : 'none';
-  document.getElementById('auth-toggle-prompt').textContent = isSignup ? 'Already registered?' : "Don't have an account?";
-  document.getElementById('auth-toggle-link').textContent = isSignup ? 'Log In' : 'Sign Up';
-  document.getElementById('auth-submit-btn').textContent = isSignup ? 'Register & Initialize' : 'Sign In';
-}
-
-async function submitAuth() {
-  const email = document.getElementById('auth-email').value;
-  const password = document.getElementById('auth-password').value;
-  const errorMsg = document.getElementById('auth-error-msg');
-  
-  if (!email || !password) {
-    errorMsg.textContent = 'Please fill out email and password.';
-    errorMsg.style.display = 'block';
-    return;
-  }
-
-  let payload = { email, password };
-  let endpoint = '/api/auth/login';
-
-  if (currentAuthMode === 'signup') {
-    payload.role = document.getElementById('auth-role').value;
-    payload.name = document.getElementById('auth-name').value || 'New User';
-    payload.age = parseInt(document.getElementById('auth-age').value) || 35;
-    payload.gender = document.getElementById('auth-gender').value || 'Other';
-    endpoint = '/api/auth/signup';
-  }
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(r => r.json());
-
-    if (res.error) {
-      errorMsg.textContent = res.error;
-      errorMsg.style.display = 'block';
-    } else {
-      document.getElementById('auth-modal').style.display = 'none';
-      if (currentAuthMode === 'signup') {
-        alert('Registration complete! Please log in with your credentials.');
-        openAuthModal('login');
-      } else {
-        await checkAuthSession();
-        loadDashboard();
-      }
-    }
-  } catch (e) {
-    errorMsg.textContent = 'Server connection failed.';
-    errorMsg.style.display = 'block';
-  }
-}
-
-async function logout() {
-  await fetch('/api/auth/logout', { method: 'POST' });
-  await checkAuthSession();
-  nav('dashboard');
-}
-
-// --- Sidebar Hamburger Toggle ---
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ov = document.getElementById('sidebar-overlay');
-  const isOpen = sb.classList.contains('open');
-  sb.classList.toggle('open', !isOpen);
-  ov.classList.toggle('show', !isOpen);
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.remove('show');
-}
-// Resize and relayout all Plotly charts dynamically on window resize / orientation change
-window.addEventListener('resize', () => {
-  document.querySelectorAll('.js-plotly-plot').forEach(el => {
-    try {
-      const isMobile = window.innerWidth < 768;
-      const extra = {};
-      if (el.id === 'ch-gauge') {
-        extra.height = 220;
-        extra.margin = isMobile ? {t:25,r:10,b:10,l:10} : {t:30,r:20,b:20,l:20};
-      } else if (el.id === 'ch-pred' || el.id === 'ch-feat') {
-        extra.height = 280;
-        if (el.id === 'ch-pred') extra.yaxis = {title:'Count'};
-        else extra.xaxis = {title:'Count'};
-      } else {
-        extra.height = 180;
-      }
-      Plotly.relayout(el, getDARKLayout(extra));
-      Plotly.Plots.resize(el);
-    } catch(e) {}
-  });
-});
-
-// --- Navigation ---
-function nav(page) {
-  currentPage = page;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('btn-nav-' + page).classList.add('active');
-  
-  closeSidebar(); // Auto-close drawer on mobile navigation selection
-  
-  if (page === 'dashboard') loadDashboard();
-  else if (page === 'analytics') loadAnalytics();
-  else if (page === 'simulation') loadConditions();
-  else if (page === 'training') loadModelStatus();
-  else if (page === 'doctor') loadDoctorWorkspace();
-}
-
-// --- Dashboard ---
-async function loadDashboard() {
-  try {
-    // 1. Resolve Patient Context if authenticated
-    let historyUrl = '/api/sensor-history?limit=50';
-    let latestUrl = '/api/latest-data';
-    let predUrl = '/api/latest-prediction';
-    let alertsUrl = '/api/alerts?limit=10';
-
-    if (sessionUser && sessionUser.user.role === 'PATIENT' && sessionUser.patient) {
-      const pid = sessionUser.patient.patient_id;
-      historyUrl += '&patient_id=' + pid;
-      latestUrl += '?patient_id=' + pid;
-      predUrl += '?patient_id=' + pid;
-      alertsUrl += '&patient_id=' + pid;
-    }
-
-    const [latRes, histRes, predRes, alertRes] = await Promise.all([
-      fetch(latestUrl).then(r => r.json()).catch(() => ({})),
-      fetch(historyUrl).then(r => r.json()).catch(() => ({readings:[]})),
-      fetch(predUrl).then(r => r.json()).catch(() => ({})),
-      fetch(alertsUrl).then(r => r.json()).catch(() => ({alerts:[]}))
-    ]);
-
-    document.getElementById('last-updated').textContent =
-      'Last updated: ' + new Date().toLocaleTimeString();
-
-    if (!latRes.error && latRes.reading) {
-      const r = latRes.reading;
-      // HR: <50 or >110 = danger, 50-60 or 100-110 = warning
-      const bpmDanger  = r.heart_rate < 50 || r.heart_rate > 110;
-      const bpmWarn    = !bpmDanger && (r.heart_rate < 60 || r.heart_rate > 100);
-      // SpO2: <92 = danger, 92-95 = warning
-      const spo2Danger = r.spo2 < 92;
-      const spo2Warn   = !spo2Danger && r.spo2 < 95;
-      // Temp: <35.5 or >38.5 = danger, borderline = warning
-      const tempDanger = r.temperature < 35.5 || r.temperature > 38.5;
-      const tempWarn   = !tempDanger && (r.temperature < 36.1 || r.temperature > 37.5);
-      setCard('bpm',  r.heart_rate  != null ? (+r.heart_rate).toFixed(0)  : '--', bpmDanger,  bpmWarn);
-      setCard('spo2', r.spo2        != null ? (+r.spo2).toFixed(1)        : '--', spo2Danger, spo2Warn);
-      setCard('temp', r.temperature != null ? (+r.temperature).toFixed(1) : '--', tempDanger, tempWarn);
-      if (r.fall_detected) {
-        document.getElementById('b-bpm').textContent = '💥 Fall Detected!';
-        document.getElementById('b-bpm').className = 'card-badge badge-danger';
-        const bpmCard = document.getElementById('card-bpm');
-        if (bpmCard) { bpmCard.classList.add('card-danger'); }
-      }
-    } else {
-      document.getElementById('last-updated').innerHTML = 
-        `<span style="color:var(--yellow);font-weight:500">⚠️ No telemetry streams found. </span>` +
-        `<span style="margin-left:5px;color:var(--muted)">Inject demo: </span>` +
-        `<button class="btn btn-primary btn-sm" style="padding:2px 8px;font-size:0.7rem;margin-left:4px;background:#3fb950;border-color:#3fb950" onclick="injectDemoReading('normal')">🟢 Normal</button>` +
-        `<button class="btn btn-primary btn-sm" style="padding:2px 8px;font-size:0.7rem;margin-left:4px;background:#d29922;border-color:#d29922" onclick="injectDemoReading('low_spo2')">🫁 Hypoxia</button>` +
-        `<button class="btn btn-primary btn-sm" style="padding:2px 8px;font-size:0.7rem;margin-left:4px;background:#f85149;border-color:#f85149" onclick="injectDemoReading('fall')">💥 Fall</button>`;
-    }
-
-    if (predRes.prediction) {
-      const p = predRes.prediction;
-      const score = +(p.risk_score || 0);
-      document.getElementById('v-risk').textContent = score.toFixed(0);
-      document.getElementById('b-risk').textContent = p.risk_level || 'Low';
-      document.getElementById('b-risk').className = 'card-badge ' +
-        (p.risk_level === 'Low' ? 'badge-ok' : p.risk_level === 'Medium' ? 'badge-warning' : 'badge-danger');
-      // Pulse the risk card based on AI risk level
-      const riskCard = document.getElementById('card-risk');
-      if (riskCard) {
-        riskCard.classList.remove('card-danger', 'card-warning');
-        if (p.risk_level === 'High' || p.risk_level === 'Critical') riskCard.classList.add('card-danger');
-        else if (p.risk_level === 'Medium') riskCard.classList.add('card-warning');
-      }
-      
-      document.getElementById('v-recommendation').textContent = p.recommendation || 'No active advice.';
-
-      Plotly.newPlot('ch-gauge', [{
-        type:'indicator', mode:'gauge+number', value: score,
-        title:{text:(p.risk_level||'Low')+' Risk', font:{color:'#8b949e',size:window.innerWidth<768?10:13}},
-        gauge:{axis:{range:[0,100]}, bar:{color:'#58a6ff'},
-          steps:[{range:[0,25],color:'rgba(63,185,80,0.25)'},
-                 {range:[25,50],color:'rgba(210,153,34,0.25)'},
-                 {range:[50,100],color:'rgba(248,81,73,0.25)'}]}
-      }], getDARKLayout({height:220, margin:window.innerWidth<768?{t:25,r:10,b:10,l:10}:{t:30,r:20,b:20,l:20}}), PLT);
-
-      // Force gauge layout to recalculate instantly for active container dimensions
-      setTimeout(() => {
-        const gd = document.getElementById('ch-gauge');
-        if (gd) Plotly.Plots.resize(gd);
-      }, 50);
-    }
-
-    renderAlertBanner(alertRes.alerts || []);
-
-    const readings = (histRes.readings || []).slice().reverse();
-    const ts  = readings.map(r => r.timestamp ? r.timestamp.substring(11,19) : '');
-    trendChart('ch-bpm',  ts, readings.map(r => r.heart_rate),  '#f85149', 'Heart Rate (bpm)');
-    trendChart('ch-spo2', ts, readings.map(r => r.spo2),        '#58a6ff', 'SpO2 (%)');
-    trendChart('ch-temp', ts, readings.map(r => r.temperature), '#f39c12', 'Temp (C)');
-
-    const tbody = document.getElementById('tbl-latest');
-    if (!readings.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No data streams. Run: python sensor_simulator.py</td></tr>';
-    } else {
-      tbody.innerHTML = readings.slice(-10).reverse().map(r => {
-        const risk = predRes.prediction ? (+predRes.prediction.risk_score).toFixed(0) : '--';
-        return '<tr>' +
-          '<td>' + (r.heart_rate  != null ? (+r.heart_rate).toFixed(0)  : '--') + '</td>' +
-          '<td>' + (r.spo2        != null ? (+r.spo2).toFixed(1)        : '--') + '</td>' +
-          '<td>' + (r.temperature != null ? (+r.temperature).toFixed(1) : '--') + '</td>' +
-          '<td>' + risk + '</td>' +
-          '<td>' + (r.fall_detected ? '💥 FALL' : 'Normal') + '</td></tr>';
-      }).join('');
-    }
-  } catch(e) { console.error('Dashboard error:', e); }
-}
-
-function setCard(id, val, abnormal, warning) {
-  document.getElementById('v-' + id).textContent = val;
-  const badge = document.getElementById('b-' + id);
-  badge.textContent = abnormal ? 'Abnormal' : warning ? 'Warning' : 'Normal';
-  badge.className = 'card-badge ' + (abnormal ? 'badge-danger' : warning ? 'badge-warning' : 'badge-ok');
-  // Apply glowing border to the parent card
-  const card = document.getElementById('card-' + id);
-  if (card) {
-    card.classList.remove('card-danger', 'card-warning');
-    if (abnormal) card.classList.add('card-danger');
-    else if (warning) card.classList.add('card-warning');
-  }
-}
-
-// --- Rich Glassmorphic Alert Banner ---
-function renderAlertBanner(alerts) {
-  const banner = document.getElementById('alert-banner');
-  const active = alerts.filter(a => !a.is_read);
-  if (!active.length) { banner.innerHTML = ''; return; }
-
-  const SEVERITY_MAP = {
-    CRITICAL:  { cls: 'alert-danger',  icon: '🚨', label: 'Critical Alert' },
-    EMERGENCY: { cls: 'alert-danger',  icon: '🆘', label: 'Emergency' },
-    HIGH:      { cls: 'alert-danger',  icon: '⚠️', label: 'High Alert' },
-    MEDIUM:    { cls: 'alert-warning', icon: '⚡', label: 'Warning' },
-    LOW:       { cls: 'alert-info',    icon: 'ℹ️', label: 'Notice' },
-  };
-
-  // Map alert_type to human-readable icons
-  const TYPE_ICON = {
-    HEART_RATE_HIGH: '❤️', HEART_RATE_LOW: '💔',
-    SPO2_LOW: '🫁', TEMPERATURE_HIGH: '🌡️', TEMPERATURE_LOW: '❄️',
-    FALL_DETECTED: '💥', ANOMALY: '🔍'
-  };
-
-  function relativeTime(ts) {
-    if (!ts) return '';
-    const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
-    if (diff < 60) return diff + 's ago';
-    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-    return Math.floor(diff / 3600) + 'h ago';
-  }
-
-  banner.innerHTML = active.slice(0, 5).map(a => {
-    const sev = (a.severity || 'MEDIUM').toUpperCase();
-    const meta = SEVERITY_MAP[sev] || SEVERITY_MAP['MEDIUM'];
-    const typeIcon = TYPE_ICON[a.alert_type] || '⚠️';
-    const ts = relativeTime(a.timestamp || a.created_at);
-
-    // Value & threshold badge if present
-    let valueBadge = '';
-    if (a.value != null && a.threshold != null) {
-      valueBadge = `<span style="
-        display:inline-block; padding:1px 7px; border-radius:4px;
-        background:rgba(255,255,255,0.08); font-size:0.72rem;
-        font-weight:700; font-family:monospace; letter-spacing:0.02em;
-        color:inherit; margin-left:4px;
-      ">${(+a.value).toFixed(1)} / ${(+a.threshold).toFixed(1)}</span>`;
-    }
-
-    return `
-      <div class="alert-card ${meta.cls}" id="alert-card-${a.id}">
-        <div class="alert-content">
-          <div class="alert-icon-wrapper">${typeIcon || meta.icon}</div>
-          <div class="alert-text">
-            <div class="alert-title">${meta.icon} ${meta.label}${valueBadge}</div>
-            <div class="alert-message">${a.message || 'No details'}</div>
-            ${ts ? `<div class="alert-time">🕐 ${ts}</div>` : ''}
+        <div class="chart-card">
+          <div class="chart-title">SpO2 Trend</div>
+          <div id="ch-spo2" style="height:180px"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Body Temp Trend</div>
+          <div id="ch-temp" style="height:180px"></div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="chart-card">
+          <div class="chart-title">Risk Score Gauge</div>
+          <div id="ch-gauge" style="height:220px"></div>
+        </div>
+        <div class="table-card">
+          <div class="chart-title">Latest Readings</div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>BPM</th>
+                  <th>SpO2</th>
+                  <th>Temp</th>
+                  <th>Risk</th>
+                  <th>Activity</th>
+                </tr>
+              </thead>
+              <tbody id="tbl-latest"></tbody>
+            </table>
           </div>
         </div>
-        <button class="alert-action-btn" onclick="dismissAlert(${a.id})" title="Dismiss">✕</button>
       </div>
-    `;
-  }).join('');
-}
 
-async function dismissAlert(id) {
-  const card = document.getElementById('alert-card-' + id);
-  if (card) { card.style.opacity = '0'; card.style.transform = 'translateX(20px)'; card.style.transition = 'all 0.25s ease'; }
-  try {
-    await fetch('/api/alerts/' + id + '/read', { method: 'PATCH' });
-  } catch(e) {}
-  setTimeout(() => { if (card) card.remove(); }, 280);
-}
+      <!-- Dynamic Clinical Advisor -->
+      <div class="panel"
+        style="margin-top: 20px; border-color: rgba(88,166,255,0.2); background: rgba(88,166,255,0.02)">
+        <h3 style="color:var(--accent);margin-bottom:8px">💡 Clinical Decision Support Recommendations</h3>
+        <div id="v-recommendation" style="font-size:0.88rem; line-height: 1.5">Waiting for physiological vitals
+          telemetry stream...</div>
+      </div>
+    </div>
 
-async function injectDemoReading(type) {
-  let hr = 72 + Math.floor(Math.random() * 10);
-  let spo2 = 97.5 + Math.random() * 2;
-  let temp = 36.6 + Math.random() * 0.5;
-  let fall = false;
+    <!-- PROFILE -->
+    <div id="page-profile" class="page">
+      <div class="topbar">
+        <div>
+          <h1>👤 My Profile</h1>
+          <div class="subtitle">Manage and customize your healthcare profile details</div>
+        </div>
+      </div>
 
-  if (type === 'low_spo2') {
-    spo2 = 89.2;
-    hr = 104;
-  } else if (type === 'fall') {
-    fall = true;
-    hr = 112;
-  }
+      <div class="profile-layout">
+        <!-- Profile Summary Side Card -->
+        <div class="profile-summary-card">
+          <div class="profile-avatar-wrapper">
+            <div class="profile-avatar" id="pf-avatar">--</div>
+            <div class="profile-status-badge">
+              <span class="status-dot dot-green"></span> Secured Patient
+            </div>
+          </div>
+          <h2 class="profile-summary-name" id="pf-summary-name">Patient Name</h2>
+          <div class="profile-summary-id" id="pf-summary-id">Patient ID: --</div>
 
-  // Clip ranges
-  spo2 = Math.min(100, Math.max(70, spo2));
-  
-  try {
-    const res = await fetch('/api/sensor-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        heart_rate: hr,
-        spo2: spo2,
-        temperature: temp,
-        fall_detected: fall
-      })
-    }).then(r => r.json());
+          <div class="profile-quick-stats">
+            <div class="quick-stat-item">
+              <span class="stat-icon">🩸</span>
+              <div class="stat-text">
+                <div class="stat-val" id="pf-stat-blood">--</div>
+                <div class="stat-lbl">Blood Group</div>
+              </div>
+            </div>
+            <div class="quick-stat-item">
+              <span class="stat-icon">🎂</span>
+              <div class="stat-text">
+                <div class="stat-val" id="pf-stat-age">--</div>
+                <div class="stat-lbl">Age</div>
+              </div>
+            </div>
+            <div class="quick-stat-item">
+              <span class="stat-icon">⚧️</span>
+              <div class="stat-text">
+                <div class="stat-val" id="pf-stat-gender">--</div>
+                <div class="stat-lbl">Gender</div>
+              </div>
+            </div>
+          </div>
 
-    if (res.success) {
-      loadDashboard();
-    } else {
-      alert('Error injecting: ' + (res.error || 'Unknown error'));
-    }
-  } catch(e) {
-    alert('Injection request failed. Make sure your server is running.');
-  }
-}
+          <div class="profile-details-list">
+            <div class="detail-item">
+              <span class="detail-icon">✉️</span>
+              <div class="detail-content">
+                <div class="detail-label">Email Address</div>
+                <div class="detail-value" id="pf-summary-email">--</div>
+              </div>
+            </div>
+            <div class="detail-item">
+              <span class="detail-icon">🩺</span>
+              <div class="detail-content">
+                <div class="detail-label">Primary Care Doctor</div>
+                <div class="detail-value" id="pf-summary-doctor">Not Assigned</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-function trendChart(el, x, y, color, name) {
-  Plotly.newPlot(el, [{x, y, type:'scatter', mode:'lines+markers', name,
-    line:{color, width:2}, marker:{size:4, color}}], getDARKLayout({height:180}), PLT);
+        <!-- Profile Edit Form Card -->
+        <div class="profile-form-card">
+          <h3 class="form-section-title">🔒 Account Settings</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="pf-name"><span class="input-icon">👤</span> Full Name</label>
+              <input type="text" id="pf-name" placeholder="Enter your full name">
+            </div>
+            <div class="form-group">
+              <label for="pf-email"><span class="input-icon">✉️</span> Registered Email</label>
+              <input type="email" id="pf-email" readonly disabled style="opacity: 0.6; cursor: not-allowed;">
+            </div>
+          </div>
 
-  // Instantly force-fit plot size to container on load to prevent any layout stretching
-  setTimeout(() => {
-    const gd = document.getElementById(el);
-    if (gd) Plotly.Plots.resize(gd);
-  }, 50);
-}
+          <h3 class="form-section-title" style="margin-top: 24px;">🩸 Medical Information</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="pf-age"><span class="input-icon">🎂</span> Age</label>
+              <input type="number" id="pf-age" placeholder="Your age" min="1" max="150">
+            </div>
+            <div class="form-group">
+              <label for="pf-gender"><span class="input-icon">⚧️</span> Gender</label>
+              <select id="pf-gender">
+                <option value="">-- Select --</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="pf-blood"><span class="input-icon">🩸</span> Blood Group</label>
+              <select id="pf-blood">
+                <option value="">-- Select --</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="pf-doctor"><span class="input-icon">🩺</span> Assigned Physician</label>
+              <input type="text" id="pf-doctor" readonly disabled style="opacity: 0.6; cursor: not-allowed;"
+                placeholder="No doctor assigned yet">
+            </div>
+          </div>
 
-// --- Analytics ---
-async function loadAnalytics() {
-  try {
-    const [predsRes, alertStats] = await Promise.all([
-      fetch('/api/predictions?limit=100').then(r => r.json()).catch(() => ({predictions:[]})),
-      fetch('/api/alerts/stats').then(r => r.json()).catch(() => ({by_severity:{},total:0}))
-    ]);
-    const preds = predsRes.predictions || [];
-    const hasPreds = preds.length > 0;
-    document.getElementById('analytics-no-model').style.display = hasPreds ? 'none' : '';
-    document.getElementById('analytics-content').style.display  = hasPreds ? '' : 'none';
-    if (!hasPreds) return;
+          <h3 class="form-section-title" style="margin-top: 24px;">📞 Emergency Contacts</h3>
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label for="pf-emergency"><span class="input-icon">🚨</span> Emergency Contact Details</label>
+              <input type="text" id="pf-emergency" placeholder="Phone number, relationship, and name">
+            </div>
+          </div>
 
-    Plotly.newPlot('ch-pred', [{type:'bar', x:levels,
-      y:levels.map(l => preds.filter(p => p.risk_level === l).length),
-      marker:{color:['#3fb950','#d29922','#f85149','#bd2130']}}],
-      getDARKLayout({height:280, yaxis:{title:'Count'}}), PLT);
+          <div class="form-actions">
+            <button class="btn btn-primary btn-save" onclick="saveProfile()">
+              <span class="save-icon">💾</span> Save Health Profile
+            </button>
+          </div>
 
-    const sevs = Object.keys(alertStats.by_severity || {});
-    if (sevs.length) {
-      Plotly.newPlot('ch-feat', [{type:'bar', orientation:'h',
-        x:sevs.map(s => alertStats.by_severity[s]), y:sevs,
-        marker:{color:'#58a6ff'}}],
-        getDARKLayout({height:280, xaxis:{title:'Count'}}), PLT);
-    }
+          <div id="pf-msg" class="profile-msg-banner"></div>
+        </div>
+      </div>
+    </div>
 
-    const avgScore = preds.reduce((s,p) => s+(p.risk_score||0), 0) / preds.length;
-    const latest = preds[0];
-    document.getElementById('analytics-metrics').innerHTML = [
-      ['Total Readings', preds.length],
-      ['Avg Risk Score', avgScore.toFixed(1)],
-      ['Latest Risk',   (latest&&latest.risk_level)||'--'],
-      ['Total Alerts',   alertStats.total||0]
-    ].map(([l,v]) =>
-      '<div class="metric-box"><div class="val">'+v+'</div><div class="lbl">'+l+'</div></div>'
-    ).join('');
-  } catch(e) { console.error('Analytics error:', e); }
-}
+    <!-- HEALTH HISTORY -->
+    <div id="page-health-history" class="page">
+      <div class="topbar">
+        <div>
+          <h1>📋 Health History</h1>
+          <div class="subtitle">Your complete health record</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="downloadPDF()">📥 Download PDF Report</button>
+      </div>
+      <div id="hh-loading" style="text-align:center;color:var(--muted);padding:40px">Loading health records...</div>
+      <div id="hh-content" style="display:none">
+        <div class="panel" style="margin-bottom:16px">
+          <h3>❤️ Heart Rate History</h3>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date/Time</th>
+                  <th>BPM</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="hh-hr"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:16px">
+          <h3>🫁 SpO₂ History</h3>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date/Time</th>
+                  <th>SpO₂ (%)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="hh-spo2"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:16px">
+          <h3>🌡️ Temperature History</h3>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date/Time</th>
+                  <th>Temp (°C)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="hh-temp"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:16px">
+          <h3>💥 Fall Detection History</h3>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date/Time</th>
+                  <th>Detected</th>
+                </tr>
+              </thead>
+              <tbody id="hh-fall"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
-// --- Simulation ---
-async function loadConditions() {
-  try {
-    const d = await fetch('/api/conditions').then(r => r.json());
-    const sel = document.getElementById('sim-condition');
-    sel.innerHTML = (d.conditions||[]).map(c =>
-      '<option value="'+c+'">'+c+'</option>').join('');
-    sel.onchange = () => {
-      document.getElementById('sim-desc').textContent =
-        (d.profiles&&d.profiles[sel.value])||'';
-    };
-    sel.onchange();
-  } catch(e) {
-    document.getElementById('sim-desc').textContent = 'Simulation unavailable.';
-  }
-}
+    <!-- PDF template (hidden, used for PDF export) -->
+    <div id="pdf-report"
+      style="position:absolute;left:-9999px;top:0;width:800px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;padding:40px 50px;color:#222;background:#fff">
+      <!-- Header -->
+      <div style="text-align:center;border-bottom:3px solid #1a73e8;padding-bottom:20px;margin-bottom:25px">
+        <h1 style="margin:0;font-size:26px;color:#1a73e8;letter-spacing:1px">MEDICARE HEALTH REPORT</h1>
+        <p style="margin:6px 0 0;font-size:13px;color:#666">IoT Healthcare Platform &mdash; AI-Powered Monitoring</p>
+      </div>
 
-async function runSim() {
-  const btn = document.getElementById('sim-btn');
-  btn.disabled = true; btn.textContent = 'Generating...';
-  try {
-    const res = await fetch('/api/simulate', {method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        condition: document.getElementById('sim-condition').value,
-        n_samples: parseInt(document.getElementById('sim-n').value),
-        enable_transitions: document.getElementById('sim-trans').checked
-      })}).then(r => r.json());
-    if (res.error) { alert(res.error); return; }
-    simData = res.rows || [];
-    document.getElementById('sim-results').style.display = '';
-    const idx = simData.map((_,i) => i+1);
-    trendChart('sim-ch-bpm',  idx, simData.map(r => r.BPM),  '#f85149', 'BPM');
-    trendChart('sim-ch-spo2', idx, simData.map(r => r.SPO2), '#58a6ff', 'SpO2');
-    document.getElementById('sim-tbl').innerHTML = simData.slice(0,20).map((r,i) =>
-      '<tr><td>'+(i+1)+'</td><td>'+(r.BPM||0).toFixed(0)+'</td><td>'+
-      (r.SPO2||0).toFixed(1)+'</td><td>'+(r.Body_Temp||0).toFixed(1)+
-      '</td><td>'+(r.Ambient_Temp||0).toFixed(1)+'</td><td>'+
-      (r.Humidity||0).toFixed(0)+'</td></tr>').join('');
-    document.getElementById('dl-btn').onclick = () => downloadCSV(simData,'simulated_data.csv');
-  } catch(e) { alert('Error: '+e.message);
-  } finally { btn.disabled=false; btn.textContent='Generate'; }
-}
-
-// --- Training ---
-async function loadModelStatus() {
-  try {
-    const res = await fetch('/api/predictions?limit=1').then(r => r.json());
-    const total = res.total || 0;
-    document.getElementById('model-status').innerHTML = total > 0
-      ? '<span class="status-dot dot-green"></span>AI Predictor active &mdash; '+total+' predictions stored'
-      : '<span class="status-dot dot-yellow"></span>No predictions yet &mdash; start the simulator';
-  } catch(e) {
-    document.getElementById('model-status').innerHTML =
-      '<span class="status-dot dot-red"></span>Could not check status';
-  }
-}
-
-async function runTrain() {
-  const btn = document.getElementById('train-btn');
-  btn.disabled=true; btn.textContent='Training...';
-  document.getElementById('train-log').style.display='none';
-  try {
-    const res = await fetch('/api/train', {method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        samples_per_condition: parseInt(document.getElementById('train-spc').value),
-        use_grid_search: document.getElementById('train-gs').checked
-      })}).then(r => r.json());
-    if (res.error) { alert('Error: '+res.error); return; }
-    document.getElementById('train-log').style.display='';
-    const m = res.metrics||{};
-    document.getElementById('train-metrics').innerHTML =
-      [['Train Acc',m.train_accuracy],['Test Acc',m.test_accuracy],
-       ['Precision',m.precision],['Recall',m.recall]].map(([l,v]) =>
-        '<div class="metric-box"><div class="val">'+(v!=null?(v*100).toFixed(1)+'%':'--')+
-        '</div><div class="lbl">'+l+'</div></div>').join('');
-    loadModelStatus();
-  } catch(e) { alert('Training failed: '+e.message);
-  } finally { btn.disabled=false; btn.textContent='Train Model'; }
-}
-
-// --- Doctor Workspace ---
-async function loadDoctorWorkspace() {
-  try {
-    const histRes = await fetch('/api/sensor-history?limit=100').then(r => r.json()).catch(() => ({readings:[]}));
-    const readings = histRes.readings || [];
-
-    // Group readings by patient/device
-    let groups = {};
-    readings.forEach(r => {
-      const pid = r.patient_id || 'ESP32_Device';
-      if (!groups[pid]) groups[pid] = [];
-      groups[pid].push(r);
-    });
-
-    allPatientReadings = groups;
-    const tbody = document.getElementById('doc-patient-tbody');
-    
-    if (Object.keys(groups).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No active sensor streams detected in system logs.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = Object.keys(groups).map(pid => {
-      const list = groups[pid];
-      const latest = list[0];
-      const selectedClass = pid === activeDoctorPatientId ? 'selected' : '';
-      
-      const hr = latest.heart_rate != null ? (+latest.heart_rate).toFixed(0) : '--';
-      const spo2 = latest.spo2 != null ? (+latest.spo2).toFixed(1) : '--';
-      const temp = latest.temperature != null ? (+latest.temperature).toFixed(1) : '--';
-
-      const isAbnormal = latest.heart_rate < 60 || latest.heart_rate > 100 || latest.spo2 < 95;
-      const statusText = latest.fall_detected ? '💥 FALL DETECTED' : isAbnormal ? '⚠️ Unstable Vitals' : '💚 Stable';
-      const statusStyle = latest.fall_detected || isAbnormal ? 'color:var(--red); font-weight:600' : 'color:var(--green)';
-
-      return `
-        <tr class="patient-row ${selectedClass}" onclick="selectDoctorPatient('${pid}')">
-          <td><strong>${pid}</strong></td>
-          <td>${hr} bpm</td>
-          <td>${spo2} %</td>
-          <td>${temp} °C</td>
-          <td style="${statusStyle}">${statusText}</td>
+      <!-- Patient Info -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:25px;font-size:13px">
+        <tr>
+          <td style="padding:4px 10px;width:50%;vertical-align:top">
+            <strong style="color:#1a73e8">Patient Name:</strong><br>
+            <span id="pdf-patient-name" style="font-size:15px">--</span>
+          </td>
+          <td style="padding:4px 10px;width:50%;vertical-align:top;text-align:right">
+            <strong style="color:#1a73e8">Report Generated:</strong><br>
+            <span id="pdf-date" style="font-size:15px">--</span>
+          </td>
         </tr>
-      `;
-    }).join('');
+      </table>
 
-    if (activeDoctorPatientId) {
-      loadDoctorDiagnostic(activeDoctorPatientId);
-    }
-  } catch (e) { console.error('Doctor panel load error:', e); }
-}
+      <!-- Summary -->
+      <div style="background:#f5f7fa;border-radius:6px;padding:14px 18px;margin-bottom:25px;font-size:13px">
+        <strong style="color:#1a73e8">Summary</strong>
+        <p style="margin:6px 0 0;color:#444">
+          Total Records: <strong id="pdf-total">0</strong> &nbsp;|&nbsp;
+          Period: <strong id="pdf-period">--</strong>
+        </p>
+      </div>
 
-function selectDoctorPatient(pid) {
-  activeDoctorPatientId = pid;
-  document.querySelectorAll('.patient-row').forEach(row => {
-    row.classList.remove('selected');
-  });
-  event.currentTarget.classList.add('selected');
-  loadDoctorDiagnostic(pid);
-}
+      <!-- Heart Rate -->
+      <h2 style="font-size:16px;color:#d93025;border-left:4px solid #d93025;padding-left:10px;margin:30px 0 10px">Heart
+        Rate History</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#d93025;color:#fff">
+            <th style="padding:8px 10px;text-align:left;font-weight:600;border:1px solid #c82020">Date / Time</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:600;border:1px solid #c82020">BPM</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:600;border:1px solid #c82020">Status</th>
+          </tr>
+        </thead>
+        <tbody id="pdf-hr"></tbody>
+      </table>
 
-async function loadDoctorDiagnostic(pid) {
-  try {
-    const [predRes, alertRes] = await Promise.all([
-      fetch('/api/latest-prediction?patient_id=' + pid).then(r => r.json()).catch(() => ({})),
-      fetch('/api/alerts?limit=5&patient_id=' + pid).then(r => r.json()).catch(() => ({alerts:[]}))
-    ]);
+      <!-- SpO2 -->
+      <h2 style="font-size:16px;color:#1a73e8;border-left:4px solid #1a73e8;padding-left:10px;margin:30px 0 10px">SpO2
+        History</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#1a73e8;color:#fff">
+            <th style="padding:8px 10px;text-align:left;font-weight:600;border:1px solid #1558b0">Date / Time</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:600;border:1px solid #1558b0">SpO2 (%)</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:600;border:1px solid #1558b0">Status</th>
+          </tr>
+        </thead>
+        <tbody id="pdf-spo2"></tbody>
+      </table>
 
-    document.getElementById('doc-diagnostic-no-selection').style.display = 'none';
-    document.getElementById('doc-diagnostic-card').style.display = 'block';
+      <!-- Temperature -->
+      <h2 style="font-size:16px;color:#e67e22;border-left:4px solid #e67e22;padding-left:10px;margin:30px 0 10px">
+        Temperature History</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#e67e22;color:#fff">
+            <th style="padding:8px 10px;text-align:left;font-weight:600;border:1px solid #c86810">Date / Time</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:600;border:1px solid #c86810">Temp (&deg;C)</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:600;border:1px solid #c86810">Status</th>
+          </tr>
+        </thead>
+        <tbody id="pdf-temp"></tbody>
+      </table>
 
-    const p = predRes.prediction;
-    if (!p) {
-      document.getElementById('doc-active-patient-name').textContent = `Diagnostics for ${pid}`;
-      document.getElementById('doc-v-hr').textContent = '--';
-      document.getElementById('doc-v-spo2').textContent = '--';
-      document.getElementById('doc-v-temp').textContent = '--';
-      document.getElementById('doc-v-risk').textContent = '--';
-      document.getElementById('doc-v-anomaly').textContent = 'No Prediction';
-      document.getElementById('doc-active-recommendation').textContent = 'Start the simulator to stream predictions.';
-      updateShapUI({heart_rate:0, spo2:0, temperature:0, fall_detected:0});
-      return;
-    }
+      <!-- Fall Detection -->
+      <h2 style="font-size:16px;color:#e74c3c;border-left:4px solid #e74c3c;padding-left:10px;margin:30px 0 10px">Fall
+        Detection History</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#e74c3c;color:#fff">
+            <th style="padding:8px 10px;text-align:left;font-weight:600;border:1px solid #c0392b">Date / Time</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:600;border:1px solid #c0392b">Detected</th>
+          </tr>
+        </thead>
+        <tbody id="pdf-fall"></tbody>
+      </table>
 
-    document.getElementById('doc-active-patient-name').textContent = `Diagnostics: Patient ${pid}`;
-    document.getElementById('doc-v-hr').textContent = (p.heart_rate != null ? (+p.heart_rate).toFixed(0) : '--') + ' bpm';
-    document.getElementById('doc-v-spo2').textContent = (p.spo2 != null ? (+p.spo2).toFixed(1) : '--') + ' %';
-    document.getElementById('doc-v-temp').textContent = (p.temperature != null ? (+p.temperature).toFixed(1) : '--') + ' °C';
-    
-    const scoreVal = +(p.risk_score || 0);
-    const riskBox = document.getElementById('doc-v-risk');
-    riskBox.textContent = scoreVal.toFixed(0) + '%';
-    riskBox.style.color = p.risk_level === 'Low' ? 'var(--green)' : p.risk_level === 'Medium' ? 'var(--yellow)' : 'var(--red)';
+      <!-- Footer -->
+      <div
+        style="text-align:center;border-top:1px solid #ddd;padding-top:14px;margin-top:30px;font-size:11px;color:#999">
+        Medicare IoT Healthcare Platform &mdash; Confidential Health Report
+      </div>
+    </div>
 
-    const anomalyBox = document.getElementById('doc-v-anomaly');
-    const isAnomaly = p.anomaly_status ? p.anomaly_status.is_anomaly : false;
-    anomalyBox.textContent = isAnomaly ? '⚠️ Outlier' : '💚 Regular';
-    anomalyBox.style.color = isAnomaly ? 'var(--red)' : 'var(--green)';
+    <!-- DOCTOR WORKSPACE -->
+    <div id="page-doctor" class="page">
+      <div class="topbar">
+        <div>
+          <h1>Doctor Diagnostic Workspace</h1>
+          <div class="subtitle">Clinical intelligence, anomaly logs, and SHAP Explainable AI diagnostics</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="table-card patient-list-card">
+          <div class="chart-title">Active Monitoring Streams</div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Device / Patient</th>
+                  <th>HR (bpm)</th>
+                  <th>SpO2 (%)</th>
+                  <th>Temp (°C)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="doc-patient-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div id="doc-diagnostic-card" class="panel" style="display:none">
+            <h3 id="doc-active-patient-name" style="margin-bottom: 12px; color: var(--accent)">Patient Diagnostic
+              Overview</h3>
 
-    document.getElementById('doc-active-recommendation').textContent = p.recommendation || 'Vitals are stable. Standard outpatient observation recommended.';
+            <div class="metrics-row" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 12px">
+              <div class="metric-box">
+                <div class="val" id="doc-v-hr">--</div>
+                <div class="lbl">Heart Rate</div>
+              </div>
+              <div class="metric-box">
+                <div class="val" id="doc-v-spo2">--</div>
+                <div class="lbl">SpO2 Level</div>
+              </div>
+              <div class="metric-box">
+                <div class="val" id="doc-v-temp">--</div>
+                <div class="lbl">Body Temp</div>
+              </div>
+            </div>
+            <div class="metrics-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 16px">
+              <div class="metric-box">
+                <div class="val" id="doc-v-risk">--</div>
+                <div class="lbl">Risk Score</div>
+              </div>
+              <div class="metric-box">
+                <div class="val" id="doc-v-anomaly">--</div>
+                <div class="lbl">Anomaly Status</div>
+              </div>
+            </div>
 
-    // Explainability Attribution
-    let shap = p.explanation;
-    if (typeof shap === 'string') {
-      try { shap = JSON.parse(shap); } catch(e){}
-    }
-    const contributions = shap ? shap.contributions : null;
-    
-    if (contributions) {
-      updateShapUI(contributions);
-    } else {
-      updateShapUI({heart_rate:33, spo2:33, temperature:33, fall_detected:0});
-    }
+            <div class="shap-container">
+              <div class="chart-title" style="margin-bottom:14px">🧠 SHAP Explainable AI (Proportional Contribution)
+              </div>
 
-  } catch(e) { console.error('Load diagnostics error:', e); }
-}
+              <div class="shap-bar-row">
+                <div class="shap-bar-lbl"><span>Heart Rate (MAX30102)</span><span id="shap-pct-hr">0%</span></div>
+                <div class="shap-bar-outer">
+                  <div id="shap-bar-hr" class="shap-bar-inner" style="width:0%; background:var(--red)"></div>
+                </div>
+              </div>
 
-function updateShapUI(contrib) {
-  const hr = contrib.heart_rate || 0;
-  const spo2 = contrib.spo2 || 0;
-  const temp = contrib.temperature || 0;
-  const fall = contrib.fall_detected || 0;
+              <div class="shap-bar-row" style="margin-top:10px">
+                <div class="shap-bar-lbl"><span>Blood Oxygen (MAX30102)</span><span id="shap-pct-spo2">0%</span></div>
+                <div class="shap-bar-outer">
+                  <div id="shap-bar-spo2" class="shap-bar-inner" style="width:0%; background:var(--accent)"></div>
+                </div>
+              </div>
 
-  document.getElementById('shap-pct-hr').textContent = hr.toFixed(1) + '%';
-  document.getElementById('shap-bar-hr').style.width = hr + '%';
+              <div class="shap-bar-row" style="margin-top:10px">
+                <div class="shap-bar-lbl"><span>Body Temp (DS18B20)</span><span id="shap-pct-temp">0%</span></div>
+                <div class="shap-bar-outer">
+                  <div id="shap-bar-temp" class="shap-bar-inner" style="width:0%; background:var(--yellow)"></div>
+                </div>
+              </div>
 
-  document.getElementById('shap-pct-spo2').textContent = spo2.toFixed(1) + '%';
-  document.getElementById('shap-bar-spo2').style.width = spo2 + '%';
+              <div class="shap-bar-row" style="margin-top:10px">
+                <div class="shap-bar-lbl"><span>Fall Vector (MPU6050)</span><span id="shap-pct-fall">0%</span></div>
+                <div class="shap-bar-outer">
+                  <div id="shap-bar-fall" class="shap-bar-inner" style="width:0%; background:#bd2130"></div>
+                </div>
+              </div>
 
-  document.getElementById('shap-pct-temp').textContent = temp.toFixed(1) + '%';
-  document.getElementById('shap-bar-temp').style.width = temp + '%';
+              <div style="font-size: 0.72rem; color: var(--muted); margin-top: 12px; line-height: 1.4">
+                * SHAP (SHapley Additive exPlanations) values outline the exact proportional factor influence of each
+                sensory channel on the AI's clinical risk classification.
+              </div>
+            </div>
 
-  document.getElementById('shap-pct-fall').textContent = fall.toFixed(1) + '%';
-  document.getElementById('shap-bar-fall').style.width = fall + '%';
-}
+            <div class="panel"
+              style="margin-top: 16px; border-color: rgba(88,166,255,0.2); background: rgba(88,166,255,0.02); padding: 16px">
+              <div class="chart-title" style="color:var(--accent);margin-bottom:8px">💡 Clinical Decision Advice</div>
+              <div id="doc-active-recommendation" style="font-size:0.83rem; line-height: 1.5; color: var(--text)">No
+                advice loaded.</div>
+            </div>
+          </div>
+          <div id="doc-diagnostic-no-selection" class="panel" style="text-align:center;color:var(--muted)">
+            👈 Select an active patient stream from the list to load clinical diagnostics and AI explanation
+            attributions.
+          </div>
+        </div>
+      </div>
+    </div>
 
-// --- Alerts ---
-async function clearAlerts() {
-  await fetch('/api/alerts/read-all',{method:'PATCH'});
-  loadDashboard();
-}
+  </main>
 
-// --- CSV ---
-function downloadCSV(rows, name) {
-  if (!rows||!rows.length) return;
-  const cols = Object.keys(rows[0]);
-  const csv = [cols.join(','), ...rows.map(r =>
-    cols.map(c => r[c]!=null?r[c]:'').join(','))].join('\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download = name; a.click();
-}
+  <!-- Authentication Modals -->
+  <div id="auth-modal" class="modal-overlay" onclick="closeAuthModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div id="auth-title" class="modal-title">🔑 Log In</div>
 
-// --- Init ---
-checkAuthSession();
-loadDashboard();
-setInterval(function(){ 
-  if(currentPage==='dashboard') loadDashboard(); 
-  else if (currentPage === 'doctor') loadDoctorWorkspace();
-}, 5000);
-</script>
+      <div id="auth-fields-signup" style="display:none">
+        <input type="text" id="auth-name" placeholder="Full Name">
+        <select id="auth-role">
+          <option value="PATIENT">Patient Account</option>
+          <option value="DOCTOR">Doctor Portal</option>
+        </select>
+        <input type="text" id="auth-age" placeholder="Age (e.g. 45)">
+        <input type="text" id="auth-gender" placeholder="Gender (e.g. Male)">
+      </div>
+
+      <input type="email" id="auth-email" placeholder="Email Address">
+      <input type="password" id="auth-password" placeholder="Password">
+
+      <div id="auth-error-msg" style="color:var(--red); font-size:0.8rem; margin-bottom:12px; display:none">Error
+        message</div>
+
+      <button class="btn btn-primary" style="width:100%" id="auth-submit-btn" onclick="submitAuth()">Submit</button>
+
+      <div style="text-align:center; margin-top:16px; font-size:0.8rem; color:var(--muted)">
+        <span id="auth-toggle-prompt">Don't have an account?</span>
+        <a href="#" style="color:var(--accent); text-decoration:none; margin-left:4px" id="auth-toggle-link"
+          onclick="toggleAuthMode(event)">Sign Up</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>

@@ -20,3 +20,16 @@ def init_db(app):
     with app.app_context():
         import database.models
         db.create_all()
+        # Migration: add new columns for existing SQLite databases
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE patients ADD COLUMN blood_group VARCHAR(10)"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE patients ADD COLUMN emergency_contact VARCHAR(200)"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
