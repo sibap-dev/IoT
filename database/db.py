@@ -18,36 +18,8 @@ db = SQLAlchemy(metadata=metadata)
 
 
 def init_db(app):
-    """Initialize Flask-SQLAlchemy. Falls back to SQLite if cloud DB is unreachable (e.g. Vercel IPv6 block)."""
+    """Initialize Flask-SQLAlchemy directly connected to Supabase."""
     db.init_app(app)
-    with app.app_context():
-        import database.models  # noqa: F401
-
-        try:
-            db.create_all()
-            logger.info("Database tables created/verified successfully.")
-        except Exception as e:
-            logger.error(f"Primary DB unreachable: {e}. Switching to SQLite fallback.")
-            # Override to in-memory SQLite so the app can start without crashing
-            app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite://"
-            db.engine.dispose()
-            try:
-                db.create_all()
-                logger.info("Fallback SQLite in-memory DB initialised.")
-            except Exception as e2:
-                logger.error(f"Fallback SQLite also failed: {e2}")
-            return
-
-        # Migration: add new columns (safe — each ignores existing column error)
-        for stmt in [
-            "ALTER TABLE patients ADD COLUMN blood_group VARCHAR(10)",
-            "ALTER TABLE patients ADD COLUMN emergency_contact VARCHAR(200)",
-            "ALTER TABLE alert_history ADD COLUMN value FLOAT",
-            "ALTER TABLE alert_history ADD COLUMN threshold FLOAT",
-        ]:
-            try:
-                from sqlalchemy import text
-                db.session.execute(text(stmt))
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+    # We do NOT run db.create_all() or migration alters here to prevent Vercel startup latency
+    # and connection locks. Tables are created directly in Supabase using SQL Editor.
+    logger.info("Flask-SQLAlchemy initialized for Supabase.")
