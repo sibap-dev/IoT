@@ -42,6 +42,8 @@ def init_db(app):
         for stmt in [
             "ALTER TABLE patients ADD COLUMN blood_group VARCHAR(10)",
             "ALTER TABLE patients ADD COLUMN emergency_contact VARCHAR(200)",
+            "ALTER TABLE alert_history ADD COLUMN value FLOAT",
+            "ALTER TABLE alert_history ADD COLUMN threshold FLOAT",
         ]:
             try:
                 from sqlalchemy import text

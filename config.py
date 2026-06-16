@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from sqlalchemy.pool import NullPool
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
@@ -45,6 +46,21 @@ class Config:
         else:
             SQLALCHEMY_DATABASE_URI = f"sqlite:///{BASE_DIR / 'database' / 'iot_healthcare.db'}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Serverless-safe connection pooling:
+    # Vercel Lambda = NullPool (no persistent connections — prevents EMAXCONNSESSION)
+    # Local dev = standard pool (5 connections, recycle every 280s)
+    if os.environ.get("VERCEL") == "1":
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "poolclass": NullPool,
+        }
+    else:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "pool_size": 3,
+            "max_overflow": 2,
+            "pool_recycle": 280,
+            "pool_pre_ping": True,
+        }
 
     HR_MIN = 60
     HR_MAX = 100
