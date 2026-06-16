@@ -30,30 +30,34 @@ except ImportError:
     logger.warning("machinL (PyTorch) not available. Will use remote ML service or rule engine.")
 
 
-class SimpleNet(nn.Module):
-    def __init__(self, input_dim, h1=128, h2=128, h3=64, num_classes=2):
-        super().__init__()
-        self.fc1 = nn.Linear(input_dim, h1)
-        self.bn1 = nn.BatchNorm1d(h1)
-        self.fc2 = nn.Linear(h1, h2)
-        self.bn2 = nn.BatchNorm1d(h2)
-        self.fc3 = nn.Linear(h2, h3)
-        self.bn3 = nn.BatchNorm1d(h3)
-        self.fc4 = nn.Linear(h3, num_classes)
+# ── PyTorch model class — only defined when torch is available ─────────────────
+if MACHINL_AVAILABLE:
+    class SimpleNet(nn.Module):
+        def __init__(self, input_dim, h1=128, h2=128, h3=64, num_classes=2):
+            super().__init__()
+            self.fc1 = nn.Linear(input_dim, h1)
+            self.bn1 = nn.BatchNorm1d(h1)
+            self.fc2 = nn.Linear(h1, h2)
+            self.bn2 = nn.BatchNorm1d(h2)
+            self.fc3 = nn.Linear(h2, h3)
+            self.bn3 = nn.BatchNorm1d(h3)
+            self.fc4 = nn.Linear(h3, num_classes)
 
-    def forward(self, x):
-        x = F.relu(self.bn1(self.fc1(x)))
-        x = F.relu(self.bn2(self.fc2(x)))
-        x = F.relu(self.bn3(self.fc3(x)))
-        return self.fc4(x)
+        def forward(self, x):
+            x = F.relu(self.bn1(self.fc1(x)))
+            x = F.relu(self.bn2(self.fc2(x)))
+            x = F.relu(self.bn3(self.fc3(x)))
+            return self.fc4(x)
+else:
+    SimpleNet = None  # Placeholder — never instantiated without torch
 
 
 MODEL_DIR = Path(os.path.dirname(os.path.dirname(__file__))) / "machinL" / "ai_health_elite_output" / "models"
 
 
 MODEL_CONFIGS = {
-    "body_temperature": {"file": "model_bt.pth",  "input_dim": 15,  "h1": 128, "h2": 128, "h3": 64,  "out": 2},
-    "heart_rate":       {"file": "model_hr.pth",  "input_dim": 29,  "h1": 64,  "h2": 64,  "h3": 32,  "out": 3},
+    "body_temperature": {"file": "model_bt.pth",   "input_dim": 15,  "h1": 128, "h2": 128, "h3": 64,  "out": 2},
+    "heart_rate":       {"file": "model_hr.pth",   "input_dim": 29,  "h1": 64,  "h2": 64,  "h3": 32,  "out": 3},
     "fall_detection":   {"file": "model_fall.pth", "input_dim": 561, "h1": 128, "h2": 128, "h3": 64,  "out": 6},
     "spo2":             {"file": "model_sp2.pth",  "input_dim": 15,  "h1": 128, "h2": 128, "h3": 64,  "out": 2},
     "fusion":           {"file": "model_fusion.pth","input_dim": 16,  "h1": 32,  "h2": 32,  "h3": 16,  "out": 2},
@@ -61,6 +65,8 @@ MODEL_CONFIGS = {
 
 
 def _load_model(cfg):
+    if not MACHINL_AVAILABLE or SimpleNet is None:
+        return None
     path = MODEL_DIR / cfg["file"]
     if not path.exists():
         logger.warning(f"Model file not found: {path}")
