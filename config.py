@@ -12,19 +12,9 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "prod-healthcare-secret-key-998822")
 
     # Programmatic credential quotation to handle passwords with special characters (@, $, etc.) safely
+    # Use DATABASE_URL if present; on Vercel it's always set via env vars (no DNS check needed)
     _db_url = os.getenv("DATABASE_URL")
-    _use_supabase = False
-    if _db_url:
-        try:
-            # Safely check if host name is resolvable (preventing blocking or crash in offline/sandboxed runners)
-            from urllib.parse import urlparse
-            import socket
-            parsed = urlparse(_db_url)
-            if parsed.hostname:
-                socket.gethostbyname(parsed.hostname)
-                _use_supabase = True
-        except Exception:
-            _use_supabase = False
+    _use_supabase = bool(_db_url)
 
     if _use_supabase and _db_url:
         try:
@@ -32,7 +22,7 @@ class Config:
                 scheme, rest = _db_url.split("://", 1)
                 if scheme == "postgres":
                     scheme = "postgresql"
-                
+
                 if "@" in rest:
                     creds, host_db = rest.rsplit("@", 1)
                     if ":" in creds:
@@ -49,7 +39,7 @@ class Config:
                 _db_url = _db_url.replace("postgres://", "postgresql://", 1)
         SQLALCHEMY_DATABASE_URI = _db_url
     else:
-        # Unreachable cloud db or offline -> Fallback silently to high-performance local SQLite database
+        # No DATABASE_URL → fallback to local SQLite (never used on Vercel)
         if os.environ.get("VERCEL") == "1":
             SQLALCHEMY_DATABASE_URI = "sqlite://"
         else:
